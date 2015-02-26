@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	// flagFuncs specifies a comma separated list of functions to parse (e.g.
+	// flagFuncs specifies a comma separated list of functions to decompile (e.g.
 	// "foo,bar").
 	flagFuncs string
 	// When flagQuiet is true, suppress non-error messages.
@@ -30,7 +30,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&flagFuncs, "funcs", "", `Comma separated list of functions to parse (e.g. "foo,bar").`)
+	flag.StringVar(&flagFuncs, "funcs", "", `Comma separated list of functions to decompile (e.g. "foo,bar").`)
 	flag.BoolVar(&flagQuiet, "q", false, "Suppress non-error messages.")
 	flag.Usage = usage
 }
