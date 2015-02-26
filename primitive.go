@@ -5,6 +5,9 @@ import (
 	"go/ast"
 	"log"
 	"path/filepath"
+	"sort"
+
+	"llvm.org/llvm/bindings/go/llvm"
 
 	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
@@ -48,11 +51,10 @@ type primitive struct {
 	// The control flow primitive is conceptually a basic block, and as such
 	// requires a basic block name.
 	name string
-	// TODO: Document additional node types.
-
-	// node is one of the following types:
-	//    []ast.Stmt
-	node ast.Node
+	// Statements of the control flow primitive.
+	stmts []ast.Stmt
+	// Terminator instruction.
+	term llvm.Value
 }
 
 // restructure attempts to create a structured control flow for a function based
@@ -74,6 +76,7 @@ func restructure(graph *dot.Graph, funcBBs map[string]*basicBlock) (*ast.FuncDec
 		if err != nil {
 			return nil, errutil.Err(err)
 		}
+		fmt.Println("located primitive:", prim)
 		funcPrims[prim.name] = prim
 	}
 	panic("not yet implemented")
@@ -89,6 +92,7 @@ func locatePrim(graph *dot.Graph, funcBBs map[string]*basicBlock, funcPrims map[
 			// No match, try next control flow primitive.
 			continue
 		}
+		printMapping(graph, sub, m)
 
 		// Merge the nodes of the subgraph isomorphism into a single node.
 		newName, err := merge.Merge(graph, m, sub)
@@ -127,15 +131,15 @@ func locatePrim(graph *dot.Graph, funcBBs map[string]*basicBlock, funcPrims map[
 // block with the specified name.
 func createPrim(subName string, m map[string]string, bbs map[string]*basicBlock, prims map[string]*primitive, newName string) (prim *primitive, err error) {
 	switch subName {
-	case "list.dot":
-		return createListPrim(m, bbs, prims, newName)
 	//case "if.dot":
 	//case "if_else.dot":
-	//case "pre_loop.dot":
-	//case "post_loop.dot":
 	//case "if_return.dot":
+	case "list.dot":
+		return createListPrim(m, bbs, prims, newName)
+	//case "post_loop.dot":
+	//case "pre_loop.dot":
 	default:
-		return nil, errutil.Newf("control flow primitive %q not yet supported", subName)
+		return nil, errutil.Newf("control flow primitive of subgraph %q not yet supported", subName)
 	}
 }
 
@@ -143,6 +147,94 @@ func createPrim(subName string, m map[string]string, bbs map[string]*basicBlock,
 // subgraph, its node pair mapping, and its basic block (and primitives forming
 // conceptual basic blocks). The new control flow primitive conceptually forms a
 // new basic block with the specified name.
+//
+// Contents of "list.dot":
+//
+//    digraph list {
+//       A [label="entry"]
+//       B [label="exit"]
+//       A->B
+//    }
 func createListPrim(m map[string]string, bbs map[string]*basicBlock, prims map[string]*primitive, newName string) (prim *primitive, err error) {
-	panic("not yet implemented")
+	// Locate graph node names.
+	nameA, ok := m["A"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "A"`)
+	}
+	nameB, ok := m["B"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "B"`)
+	}
+
+	// Append the statments of the entry and exit basic blocks (or primitives).
+	stmtsA, err := getStatements(bbs, prims, nameA)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	stmtsB, err := getStatements(bbs, prims, nameB)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	stmts := append(stmtsA, stmtsB...)
+
+	// Locate the teminator instruction of the exit basic block (or primitive).
+	termB, err := getTerminator(bbs, prims, nameB)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+
+	// Create new primitive.
+	prim = &primitive{
+		name:  newName,
+		stmts: stmts,
+		term:  termB,
+	}
+	return prim, nil
+}
+
+// getStatements returns the list of statements from the named basic block (or
+// primitive forming a conceptual basic block).
+func getStatements(bbs map[string]*basicBlock, prims map[string]*primitive, name string) ([]ast.Stmt, error) {
+	// Get statements from basic block.
+	if bb, ok := bbs[name]; ok {
+		return bb.insts, nil
+	}
+
+	// Get statements from primitive.
+	if prim, ok := prims[name]; ok {
+		return prim.stmts, nil
+	}
+
+	return nil, errutil.Newf("unable to locate basic block (or primitive forming a conceptual basic block) of name %q", name)
+}
+
+// getTerminator returns the terminator instruction of the named basic block (or
+// primitive forming a conceptual basic block).
+func getTerminator(bbs map[string]*basicBlock, prims map[string]*primitive, name string) (llvm.Value, error) {
+	// Get terminator from basic block.
+	if bb, ok := bbs[name]; ok {
+		return bb.term, nil
+	}
+
+	// Get terminator from primitive.
+	if prim, ok := prims[name]; ok {
+		return prim.term, nil
+	}
+
+	return llvm.Value{}, errutil.Newf("unable to locate basic block (or primitive forming a conceptual basic block) of name %q", name)
+}
+
+// printMapping prints the mapping from sub node name to graph node name for an
+// isomorphism of sub in graph.
+func printMapping(graph *dot.Graph, sub *graphs.SubGraph, m map[string]string) {
+	entry := m[sub.Entry()]
+	var snames []string
+	for sname := range m {
+		snames = append(snames, sname)
+	}
+	sort.Strings(snames)
+	fmt.Printf("Isomorphism of %q found at node %q:\n", sub.Name, entry)
+	for _, sname := range snames {
+		fmt.Printf("   %q=%q\n", sname, m[sname])
+	}
 }
