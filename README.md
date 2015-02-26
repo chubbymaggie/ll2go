@@ -1,3 +1,7 @@
+## WIP
+
+This project is a *work in progress*. The implementation is *incomplete* and subject to change. The documentation can be inaccurate.
+
 # ll2go
 
 [![GoDoc](https://godoc.org/github.com/mewrev/ll2go?status.svg)](https://godoc.org/github.com/mewrev/ll2go)
