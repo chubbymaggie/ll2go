@@ -36,7 +36,7 @@ func parseBasicBlock(llBB llvm.BasicBlock) (bb *basicBlock, err error) {
 			// resume terminator instruction.
 			case llvm.Ret, llvm.Br, llvm.Switch, llvm.IndirectBr, llvm.Invoke, llvm.Unreachable:
 			default:
-				return nil, errutil.Newf("non-terminator instruction (opcode %v) at end of basic block", opcode)
+				return nil, errutil.Newf("non-terminator instruction %q at end of basic block", prettyOpcode(opcode))
 			}
 			bb.term = llInst
 			return bb, nil

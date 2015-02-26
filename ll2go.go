@@ -13,10 +13,12 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
+	"github.com/mewkiz/pkg/osutil"
 	"github.com/mewkiz/pkg/pathutil"
 	"llvm.org/llvm/bindings/go/llvm"
 )
@@ -72,22 +74,28 @@ func ll2go(llPath string) error {
 	// Create temporary foo.dot file, e.g.
 	//
 	//    foo.ll -> foo_graphs/*.dot
-	cmd := exec.Command("ll2dot", "-q", "-f", llPath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err != nil {
-		return errutil.Err(err)
+	dotDir := basePath + "_graphs"
+	if ok, _ := osutil.Exists(dotDir); !ok {
+		if !flagQuiet {
+			log.Printf("Creating control flow graphs for %q.\n", filepath.Base(llPath))
+		}
+		cmd := exec.Command("ll2dot", "-q", "-f", llPath)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
+		if err != nil {
+			return errutil.Err(err)
+		}
 	}
 
 	// Create temporary foo.bc file, e.g.
 	//
 	//    foo.ll -> foo.bc
 	bcPath := fmt.Sprintf("/tmp/%s.bc", baseName)
-	cmd = exec.Command("llvm-as", "-o", bcPath, llPath)
+	cmd := exec.Command("llvm-as", "-o", bcPath, llPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return errutil.Err(err)
 	}
