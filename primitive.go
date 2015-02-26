@@ -131,7 +131,8 @@ func locatePrim(graph *dot.Graph, funcBBs map[string]*basicBlock, funcPrims map[
 // block with the specified name.
 func createPrim(subName string, m map[string]string, bbs map[string]*basicBlock, prims map[string]*primitive, newName string) (prim *primitive, err error) {
 	switch subName {
-	//case "if.dot":
+	case "if.dot":
+		return createIfPrim(m, bbs, prims, newName)
 	//case "if_else.dot":
 	//case "if_return.dot":
 	case "list.dot":
@@ -143,10 +144,10 @@ func createPrim(subName string, m map[string]string, bbs map[string]*basicBlock,
 	}
 }
 
-// createListPrim creates a slice of Go statements based on the identified
-// subgraph, its node pair mapping, and its basic block (and primitives forming
-// conceptual basic blocks). The new control flow primitive conceptually forms a
-// new basic block with the specified name.
+// createListPrim creates a list primitive containing a slice of Go statements
+// based on the identified subgraph, its node pair mapping, and its basic block
+// (and primitives forming conceptual basic blocks). The new control flow
+// primitive conceptually forms a new basic block with the specified name.
 //
 // Contents of "list.dot":
 //
@@ -166,7 +167,8 @@ func createListPrim(m map[string]string, bbs map[string]*basicBlock, prims map[s
 		return nil, errutil.New(`unable to locate node pair for sub node "B"`)
 	}
 
-	// Append the statments of the entry and exit basic blocks (or primitives).
+	// Locate the statments of the entry ("A") and exit ("B") basic blocks (or
+	// primitives).
 	stmtsA, err := getStatements(bbs, prims, nameA)
 	if err != nil {
 		return nil, errutil.Err(err)
@@ -175,19 +177,101 @@ func createListPrim(m map[string]string, bbs map[string]*basicBlock, prims map[s
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
-	stmts := append(stmtsA, stmtsB...)
 
-	// Locate the teminator instruction of the exit basic block (or primitive).
+	// Locate the teminator instruction of the exit ("B") basic block (or
+	// primitive).
 	termB, err := getTerminator(bbs, prims, nameB)
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
 
-	// Create new primitive.
+	// Create and return new primitive.
+	stmts := append(stmtsA, stmtsB...)
 	prim = &primitive{
 		name:  newName,
 		stmts: stmts,
 		term:  termB,
+	}
+	return prim, nil
+}
+
+// createIfPrim creates an if-statement primitive based on the identified
+// subgraph, its node pair mapping, and its basic block (and primitives forming
+// conceptual basic blocks). The new control flow primitive conceptually forms a
+// new basic block with the specified name.
+//
+// Contents of "if.dot":
+//
+//    digraph if {
+//       A [label="entry"]
+//       B
+//       C [label="exit"]
+//       A->B [label="true"]
+//       A->C [label="false"]
+//       B->C
+//    }
+func createIfPrim(m map[string]string, bbs map[string]*basicBlock, prims map[string]*primitive, newName string) (prim *primitive, err error) {
+	// Locate graph node names.
+	nameA, ok := m["A"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "A"`)
+	}
+	nameB, ok := m["B"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "B"`)
+	}
+	nameC, ok := m["C"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "C"`)
+	}
+
+	// Locate the statements of the cond ("A") and body ("B") basic blocks (or
+	// primitives).
+	stmtsA, err := getStatements(bbs, prims, nameA)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	stmtsB, err := getStatements(bbs, prims, nameB)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	stmtsC, err := getStatements(bbs, prims, nameC)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+
+	// Locate the teminator instruction of the cond ("A") and exit ("C") basic
+	// blocks (or primitives).
+	termA, err := getTerminator(bbs, prims, nameA)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	termC, err := getTerminator(bbs, prims, nameC)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+
+	// Create and return new primitive.
+	fmt.Println("### [ cond ] ###")
+	termA.Dump()
+	fmt.Println()
+	cond, err := getBrCond(termA)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	body := &ast.BlockStmt{
+		List: stmtsB,
+	}
+	ifStmt := &ast.IfStmt{
+		Cond: cond,
+		Body: body,
+	}
+	stmts := append(stmtsA, ifStmt)
+	stmts = append(stmts, stmtsC...)
+	prim = &primitive{
+		name:  newName,
+		stmts: stmts,
+		term:  termC,
 	}
 	return prim, nil
 }

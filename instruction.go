@@ -40,7 +40,7 @@ func parseInst(inst llvm.Value) (ast.Stmt, error) {
 
 		// Other Operators
 		case llvm.ICmp, llvm.FCmp:
-			pred, err := getPred(inst)
+			pred, err := getCmpPred(inst)
 			if err != nil {
 				return nil, errutil.Err(err)
 			}
@@ -69,11 +69,11 @@ func parseBinOp(inst llvm.Value, op token.Token) (ast.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	name, err := getResult(inst)
+	result, err := getResult(inst)
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
-	lhs := []ast.Expr{ast.NewIdent(name)}
+	lhs := []ast.Expr{result}
 	rhs := []ast.Expr{&ast.BinaryExpr{X: x, Op: op, Y: y}}
 	return &ast.AssignStmt{Lhs: lhs, Tok: token.DEFINE, Rhs: rhs}, nil
 }
@@ -103,6 +103,7 @@ func parseOperand(op llvm.Value) (ast.Expr, error) {
 	// TODO: Parse type.
 	//typ := tokens[0]
 
+	// Create and return the operand.
 	val := tokens[1]
 	switch val.Kind {
 	case lltoken.Int:
@@ -112,12 +113,12 @@ func parseOperand(op llvm.Value) (ast.Expr, error) {
 	}
 }
 
-// getPred parses the provided comparison instruction and returns a Go token
+// getCmpPred parses the provided comparison instruction and returns a Go token
 // equivalent of the comparison predicate.
 //
 // Syntax:
 //    <result> = icmp <pred> <type> <op1>, <op2>
-func getPred(inst llvm.Value) (token.Token, error) {
+func getCmpPred(inst llvm.Value) (token.Token, error) {
 	// Parse and validate tokens.
 	tokens, err := getTokens(inst)
 	if err != nil {
@@ -178,29 +179,68 @@ func getPred(inst llvm.Value) (token.Token, error) {
 	}
 }
 
-// getResult returns the name of the result variable in the provided assignment
-// operation.
+// getBrCond parses the provided branch instruction and returns its condition.
+//
+// Syntax:
+//    br i1 <cond>, label <target_true>, label <target_false>
+func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
+	// Parse and validate tokens.
+	tokens, err := getTokens(term)
+	if err != nil {
+		return nil, err
+	}
+	if len(tokens) != 10 {
+		// TODO: Remove debug output.
+		term.Dump()
+		return nil, errutil.Newf("unable to parse conditional branch instruction; expected 10 tokens, got %d", len(tokens))
+	}
+
+	// Create and return the condition.
+	//    true
+	//    false
+	//    1
+	//    0
+	//    %foo
+	switch tok := tokens[2]; tok.Kind {
+	case lltoken.KwTrue, lltoken.KwFalse, lltoken.LocalVar, lltoken.LocalID:
+		return ast.NewIdent(tok.Val), nil
+	case lltoken.Int:
+		switch tok.Val {
+		case "0":
+			return ast.NewIdent("false"), nil
+		case "1":
+			return ast.NewIdent("true"), nil
+		default:
+			return nil, errutil.Newf("invalid integer value; expected boolean, got %q", tok.Val)
+		}
+	default:
+		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
+	}
+}
+
+// getResult returns the result identifier of the provided assignment operation.
 //
 // Syntax:
 //    %foo = ...
-func getResult(inst llvm.Value) (name string, err error) {
+func getResult(inst llvm.Value) (result ast.Expr, err error) {
 	// Parse and validate tokens.
 	tokens, err := getTokens(inst)
 	if err != nil {
-		return "", errutil.Err(err)
+		return nil, errutil.Err(err)
 	}
 	if len(tokens) < 2 {
-		return "", errutil.Newf("unable to locate result variable name; expected >= 2 tokens, got %d", len(tokens))
+		return nil, errutil.Newf("unable to locate result identifier; expected >= 2 tokens, got %d", len(tokens))
 	}
 	if eq := tokens[1]; eq.Kind != lltoken.Equal {
-		return "", errutil.Newf("invalid assigment operation; expected '=' token, got %q", eq)
+		return nil, errutil.Newf("invalid assigment operation; expected '=' token, got %q", eq)
 	}
 
+	// Create and return the result identifier.
 	switch ident := tokens[0]; ident.Kind {
-	case lltoken.LocalID, lltoken.LocalVar:
-		return ident.Val, nil
+	case lltoken.LocalVar, lltoken.LocalID:
+		return ast.NewIdent(ident.Val), nil
 	default:
-		return "", errutil.Newf("support for LLVM IR token kind %v not yet implemented", ident.Kind)
+		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", ident.Kind)
 	}
 }
 
