@@ -28,6 +28,15 @@ import (
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
+// getTokens tokenizes the value dump of v and returns its tokens.
+func getTokens(v llvm.Value) ([]token.Token, error) {
+	s, err := hackDump(v)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	return lexer.ParseString(s), nil
+}
+
 // getBBName returns the name (or ID if unnamed) of a basic block.
 func getBBName(v llvm.Value) (string, error) {
 	if !v.IsBasicBlock() {
