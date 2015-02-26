@@ -15,50 +15,46 @@ import (
 //    2) <result> add <type> <op1> <op2>   ->   *ast.AssignStmt
 
 // parseInst converts the provided LLVM IR instruction into an equivalent Go AST
-// node.
-func parseInst(inst llvm.Value) (ast.Node, error) {
+// node (a statement).
+func parseInst(inst llvm.Value) (ast.Stmt, error) {
 	// TODO: Remove debug output.
 	fmt.Println("parseInst:")
 	inst.Dump()
 	fmt.Println()
 
-	// Standard Binary Operators
-	var expr ast.Expr
+	// Assignment.
 	opcode := inst.InstructionOpcode()
-	switch opcode {
-	case llvm.Add:
-		var err error
-		expr, err = parseAddInst(inst)
-		if err != nil {
-			return nil, err
+	if name := inst.Name(); len(name) > 0 {
+		// Standard Binary Operators
+		switch opcode {
+		case llvm.Add, llvm.FAdd:
+			return parseBinOp(inst, token.ADD)
+		case llvm.Sub, llvm.FSub:
+			return parseBinOp(inst, token.SUB)
+		case llvm.Mul, llvm.FMul:
+			return parseBinOp(inst, token.MUL)
+		case llvm.UDiv, llvm.SDiv, llvm.FDiv:
+			// TODO: Handle signed and unsigned div separately.
+			return parseBinOp(inst, token.QUO)
+		case llvm.URem, llvm.SRem, llvm.FRem:
+			// TODO: Handle signed and unsigned mod separately.
+			return parseBinOp(inst, token.REM)
 		}
-	//case llvm.FAdd:
-	//case llvm.Sub:
-	//case llvm.FSub:
-	//case llvm.Mul:
-	//case llvm.FMul:
-	//case llvm.UDiv:
-	//case llvm.SDiv:
-	//case llvm.FDiv:
-	//case llvm.URem:
-	//case llvm.SRem:
-	//case llvm.FRem:
-	default:
-		return nil, errutil.Newf("support for LLVM IR instruction opcode %v not yet implemented", opcode)
 	}
 
-	// Assignment?
-	fmt.Println("name:", inst.Name())
-
-	return expr, nil
+	return nil, errutil.Newf("support for LLVM IR instruction opcode %v not yet implemented", opcode)
 }
 
-// parseAddInst converts the provided LLVM IR add instruction into an equivalent
-// Go AST node (a binary expression).
+// parseBinOp converts the provided LLVM IR binary operation into an equivalent
+// Go AST node (an assignment statement with a binary expression on the right-
+// hand side).
 //
 // Syntax:
-//    add <type> <op1>, <op2>
-func parseAddInst(inst llvm.Value) (ast.Expr, error) {
+//    <result> add <type> <op1>, <op2>
+//
+// References:
+//    http://llvm.org/docs/LangRef.html#binary-operations
+func parseBinOp(inst llvm.Value, op token.Token) (ast.Stmt, error) {
 	x, err := parseOperand(inst.Operand(0))
 	if err != nil {
 		return nil, err
@@ -67,7 +63,15 @@ func parseAddInst(inst llvm.Value) (ast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ast.BinaryExpr{X: x, Op: token.ADD, Y: y}, nil
+	name := inst.Name()
+	if len(name) < 1 {
+		// TODO: Remove debug output.
+		inst.Dump()
+		return nil, errutil.Newf("unable to locate result variable name of binary operation")
+	}
+	lhs := []ast.Expr{ast.NewIdent(name)}
+	rhs := []ast.Expr{&ast.BinaryExpr{X: x, Op: op, Y: y}}
+	return &ast.AssignStmt{Lhs: lhs, Tok: token.DEFINE, Rhs: rhs}, nil
 }
 
 // parseOperand converts the provided LLVM IR operand into an equivalent Go AST

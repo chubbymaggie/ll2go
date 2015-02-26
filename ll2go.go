@@ -8,11 +8,14 @@ import (
 	"flag"
 	"fmt"
 	"go/ast"
+	"go/printer"
+	"go/token"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
 	"github.com/mewkiz/pkg/pathutil"
 	"llvm.org/llvm/bindings/go/llvm"
@@ -62,15 +65,29 @@ func main() {
 func ll2go(llPath string) error {
 	// File name and file path without extension.
 	baseName := pathutil.FileName(llPath)
+	basePath := pathutil.TrimExt(llPath)
+
+	// TODO: Create graphs in /tmp/xxx_graphs/*.dot
+
+	// Create temporary foo.dot file, e.g.
+	//
+	//    foo.ll -> foo_graphs/*.dot
+	cmd := exec.Command("ll2dot", "-q", "-f", llPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return errutil.Err(err)
+	}
 
 	// Create temporary foo.bc file, e.g.
 	//
 	//    foo.ll -> foo.bc
 	bcPath := fmt.Sprintf("/tmp/%s.bc", baseName)
-	cmd := exec.Command("llvm-as", "-o", bcPath, llPath)
+	cmd = exec.Command("llvm-as", "-o", bcPath, llPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		return errutil.Err(err)
 	}
@@ -113,7 +130,11 @@ func ll2go(llPath string) error {
 		if !flagQuiet {
 			log.Printf("Parsing function: %q\n", funcName)
 		}
-		f, err := parseFunc(module, funcName)
+		graph, err := parseCFG(basePath, funcName)
+		if err != nil {
+			return errutil.Err(err)
+		}
+		f, err := parseFunc(graph, module, funcName)
 		if err != nil {
 			return errutil.Err(err)
 		}
@@ -123,9 +144,23 @@ func ll2go(llPath string) error {
 	return nil
 }
 
+// parseCFG parses the control flow graph of the function.
+//
+// For a source file "foo.ll" containing the functions "bar" and "baz" the
+// following DOT files will be created:
+//
+//    foo_graphs/bar.dot
+//    foo_graphs/baz.dot
+func parseCFG(basePath, funcName string) (graph *dot.Graph, err error) {
+	dotDir := basePath + "_graphs"
+	dotName := funcName + ".dot"
+	dotPath := fmt.Sprintf("%s/%s", dotDir, dotName)
+	return dot.ParseFile(dotPath)
+}
+
 // parseFunc parses the given function and attempts to construct an equivalent
 // Go function declaration AST node.
-func parseFunc(module llvm.Module, funcName string) (f *ast.FuncDecl, err error) {
+func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.FuncDecl, error) {
 	llFunc := module.NamedFunction(funcName)
 	if llFunc.IsNil() {
 		return nil, errutil.Newf("unable to locate function %q", funcName)
@@ -135,13 +170,26 @@ func parseFunc(module llvm.Module, funcName string) (f *ast.FuncDecl, err error)
 	}
 
 	// Parse each basic block.
-	for _, bb := range llFunc.BasicBlocks() {
-		node, err := parseBasicBlock(bb)
+	bbs := make(map[string]*basicBlock)
+	for _, llBB := range llFunc.BasicBlocks() {
+		bb, err := parseBasicBlock(llBB)
 		if err != nil {
 			return nil, err
 		}
-		_ = node
+		bbs[bb.name] = bb
+		printBB(bb)
 	}
 
-	return f, nil
+	// Perform control flow analysis.
+	return restructure(graph, bbs)
+}
+
+// printBB pretty-prints the basic block to stdout.
+func printBB(bb *basicBlock) {
+	fset := token.NewFileSet()
+	fmt.Printf("--- [ basic block %q ] ---\n", bb.name)
+	printer.Fprint(os.Stdout, fset, bb.insts)
+	fmt.Println()
+	bb.term.Dump()
+	fmt.Println()
 }
