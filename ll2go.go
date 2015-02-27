@@ -178,13 +178,13 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 	}
 
 	// Parse each basic block.
-	bbs := make(map[string]*basicBlock)
+	bbs := make(map[string]BasicBlock)
 	for _, llBB := range llFunc.BasicBlocks() {
 		bb, err := parseBasicBlock(llBB)
 		if err != nil {
 			return nil, err
 		}
-		bbs[bb.name] = bb
+		bbs[bb.Name()] = bb
 		printBB(bb)
 	}
 
@@ -193,11 +193,11 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 }
 
 // printBB pretty-prints the basic block to stdout.
-func printBB(bb *basicBlock) {
+func printBB(bb BasicBlock) {
 	fset := token.NewFileSet()
-	fmt.Printf("--- [ basic block %q ] ---\n", bb.name)
-	printer.Fprint(os.Stdout, fset, bb.insts)
+	fmt.Printf("--- [ basic block %q ] ---\n", bb.Name())
+	printer.Fprint(os.Stdout, fset, bb.Stmts())
 	fmt.Println()
-	bb.term.Dump()
+	bb.Term().Dump()
 	fmt.Println()
 }
