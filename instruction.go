@@ -196,15 +196,16 @@ func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
 	}
 
 	// Create and return the condition.
-	//    true
-	//    false
-	//    1
-	//    0
-	//    %foo
 	switch tok := tokens[2]; tok.Kind {
 	case lltoken.KwTrue, lltoken.KwFalse, lltoken.LocalVar, lltoken.LocalID:
-		return ast.NewIdent(tok.Val), nil
+		//    true
+		//    false
+		//    %foo
+		//    %42
+		return getIdent(tok)
 	case lltoken.Int:
+		//    1
+		//    0
 		switch tok.Val {
 		case "0":
 			return ast.NewIdent("false"), nil
@@ -213,6 +214,21 @@ func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
 		default:
 			return nil, errutil.Newf("invalid integer value; expected boolean, got %q", tok.Val)
 		}
+	default:
+		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
+	}
+}
+
+// getIdent converts the provided LLVM IR token into a Go identifier.
+func getIdent(tok lltoken.Token) (ident ast.Expr, err error) {
+	switch tok.Kind {
+	case lltoken.KwTrue, lltoken.KwFalse, lltoken.LocalVar:
+		return ast.NewIdent(tok.Val), nil
+	case lltoken.LocalID:
+		// Translate local variable IDs (e.g. "%42") to Go identifiers by adding
+		// an underscore prefix (e.g. "_42").
+		name := "_" + tok.Val
+		return ast.NewIdent(name), nil
 	default:
 		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
 	}
@@ -236,11 +252,11 @@ func getResult(inst llvm.Value) (result ast.Expr, err error) {
 	}
 
 	// Create and return the result identifier.
-	switch ident := tokens[0]; ident.Kind {
+	switch tok := tokens[0]; tok.Kind {
 	case lltoken.LocalVar, lltoken.LocalID:
-		return ast.NewIdent(ident.Val), nil
+		return getIdent(tok)
 	default:
-		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", ident.Kind)
+		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
 	}
 }
 

@@ -7,14 +7,13 @@ import (
 	"path/filepath"
 	"sort"
 
-	"llvm.org/llvm/bindings/go/llvm"
-
 	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
 	"github.com/mewkiz/pkg/goutil"
 	"github.com/mewrev/graphs"
 	"github.com/mewrev/graphs/iso"
 	"github.com/mewrev/graphs/merge"
+	"llvm.org/llvm/bindings/go/llvm"
 )
 
 var (
@@ -65,7 +64,7 @@ type primitive struct {
 func restructure(graph *dot.Graph, funcBBs map[string]*basicBlock) (*ast.FuncDecl, error) {
 	funcPrims := make(map[string]*primitive)
 	for {
-		if len(funcBBs) <= 1 {
+		if len(funcBBs)+len(funcPrims) <= 1 {
 			fmt.Println("restructure: DONE :)")
 			fmt.Println("   funcBBs:", funcBBs)
 			fmt.Println("   funcPrims:", funcPrims)
