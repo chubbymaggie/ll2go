@@ -50,6 +50,16 @@ func mainret(file *ast.File) bool {
 	//
 	//    // to:
 	//    return
+	//
+	// 3)
+	//    // from:
+	//    func main() {
+	//       return
+	//    }
+	//
+	//    // to:
+	//    func main() {
+	//    }
 	walk(mainFunc, func(n interface{}) {
 		stmt, ok := n.(*ast.Stmt)
 		if !ok {
