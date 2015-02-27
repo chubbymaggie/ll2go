@@ -4,7 +4,6 @@ import (
 	"go/ast"
 
 	"github.com/mewkiz/pkg/errutil"
-
 	"llvm.org/llvm/bindings/go/llvm"
 )
 

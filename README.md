@@ -19,8 +19,10 @@ go get github.com/mewrev/ll2go
     ll2go [OPTION]... FILE...
 
     Flags:
-      -funcs="":  Comma separated list of functions to decompile (e.g. "foo,bar").
-      -q=false:   Suppress non-error messages.
+      -f=false:    Force overwrite existing Go source code.
+      -funcs="":   Comma separated list of functions to decompile (e.g. "foo,bar").
+      -pkgname="": Package name.
+      -q=false:    Suppress non-error messages.
 
 ## Examples
 

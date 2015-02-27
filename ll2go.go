@@ -24,15 +24,21 @@ import (
 )
 
 var (
+	// When flagForce is true, force overwrite existing Go source code.
+	flagForce bool
 	// flagFuncs specifies a comma separated list of functions to decompile (e.g.
 	// "foo,bar").
 	flagFuncs string
+	// flagPkgName specifies the package name if non-empty.
+	flagPkgName string
 	// When flagQuiet is true, suppress non-error messages.
 	flagQuiet bool
 )
 
 func init() {
+	flag.BoolVar(&flagForce, "f", false, "Force overwrite existing Go source code.")
 	flag.StringVar(&flagFuncs, "funcs", "", `Comma separated list of functions to decompile (e.g. "foo,bar").`)
+	flag.StringVar(&flagPkgName, "pkgname", "", "Package name.")
 	flag.BoolVar(&flagQuiet, "q", false, "Suppress non-error messages.")
 	flag.Usage = usage
 }
@@ -133,6 +139,25 @@ func ll2go(llPath string) error {
 		}
 	}
 
+	// Locate package name.
+	pkgName := flagPkgName
+	if len(flagPkgName) == 0 {
+		pkgName = baseName
+		for _, funcName := range funcNames {
+			if funcName == "main" {
+				pkgName = "main"
+				break
+			}
+		}
+	}
+
+	// Create foo.go.
+	file := &ast.File{
+		Name: ast.NewIdent(pkgName),
+	}
+
+	// TODO: Implement support for global variables.
+
 	// Parse each function.
 	for _, funcName := range funcNames {
 		if !flagQuiet {
@@ -150,9 +175,18 @@ func ll2go(llPath string) error {
 		fmt.Println()
 		printFunc(f)
 		fmt.Println()
+		file.Decls = append(file.Decls, f)
 	}
 
-	return nil
+	goName := baseName + ".go"
+	printFile(goName, file)
+
+	// Store Go source code to file.
+	goPath := basePath + ".go"
+	if !flagQuiet {
+		log.Printf("Creating: %q\n", goPath)
+	}
+	return storeFile(goPath, file)
 }
 
 // parseCFG parses the control flow graph of the function.
@@ -196,8 +230,13 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
-	// TODO: Implement parsing of function signature.
-	return createFunc(funcName, nil, body)
+	sig := &ast.FuncType{
+		Params: &ast.FieldList{},
+	}
+	if funcName != "main" {
+		// TODO: Implement parsing of function signature.
+	}
+	return createFunc(funcName, sig, body)
 }
 
 // createFunc creates and returns a Go function declaration based on the
@@ -209,6 +248,23 @@ func createFunc(name string, sig *ast.FuncType, body *ast.BlockStmt) (*ast.FuncD
 		Body: body,
 	}
 	return f, nil
+}
+
+// storeFile stores the given Go source code to the provided file path.
+func storeFile(goPath string, file *ast.File) error {
+	// Don't force overwrite Go output file.
+	if !flagForce {
+		if ok, _ := osutil.Exists(goPath); ok {
+			return errutil.Newf("output file %q already exists", goPath)
+		}
+	}
+	f, err := os.Create(goPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	fset := token.NewFileSet()
+	return printer.Fprint(f, fset, file)
 }
 
 // printBB pretty-prints the basic block to stdout.
@@ -228,5 +284,13 @@ func printFunc(f *ast.FuncDecl) {
 	fset := token.NewFileSet()
 	fmt.Printf("--- [ function %q ] ---\n", f.Name)
 	printer.Fprint(os.Stdout, fset, f)
+	fmt.Println()
+}
+
+// printFile pretty-prints the Go file to stdout.
+func printFile(name string, file *ast.File) {
+	fset := token.NewFileSet()
+	fmt.Printf("--- [ file %q ] ---\n", name)
+	printer.Fprint(os.Stdout, fset, file)
 	fmt.Println()
 }
