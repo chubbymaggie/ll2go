@@ -146,7 +146,10 @@ func ll2go(llPath string) error {
 		if err != nil {
 			return errutil.Err(err)
 		}
-		_ = f
+		fmt.Printf("=== [ function %q ] ===\n", funcName)
+		fmt.Println()
+		printFunc(f)
+		fmt.Println()
 	}
 
 	return nil
@@ -189,7 +192,23 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 	}
 
 	// Perform control flow analysis.
-	return restructure(graph, bbs)
+	body, err := restructure(graph, bbs)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	// TODO: Implement parsing of function signature.
+	return createFunc(funcName, nil, body)
+}
+
+// createFunc creates and returns a Go function declaration based on the
+// provided function name, function signature and basic block.
+func createFunc(name string, sig *ast.FuncType, body *ast.BlockStmt) (*ast.FuncDecl, error) {
+	f := &ast.FuncDecl{
+		Name: ast.NewIdent(name),
+		Type: sig,
+		Body: body,
+	}
+	return f, nil
 }
 
 // printBB pretty-prints the basic block to stdout.
@@ -198,6 +217,16 @@ func printBB(bb BasicBlock) {
 	fmt.Printf("--- [ basic block %q ] ---\n", bb.Name())
 	printer.Fprint(os.Stdout, fset, bb.Stmts())
 	fmt.Println()
-	bb.Term().Dump()
+	if term := bb.Term(); !term.IsNil() {
+		term.Dump()
+	}
+	fmt.Println()
+}
+
+// printFunc pretty-prints the function to stdout.
+func printFunc(f *ast.FuncDecl) {
+	fset := token.NewFileSet()
+	fmt.Printf("--- [ function %q ] ---\n", f.Name)
+	printer.Fprint(os.Stdout, fset, f)
 	fmt.Println()
 }

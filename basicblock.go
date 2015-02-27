@@ -53,14 +53,10 @@ func parseBasicBlock(llBB llvm.BasicBlock) (bb *basicBlock, err error) {
 	bb = &basicBlock{name: name}
 	for inst := llBB.FirstInstruction(); !inst.IsNil(); inst = llvm.NextInstruction(inst) {
 		if inst == llBB.LastInstruction() {
-			switch opcode := inst.InstructionOpcode(); opcode {
-			// TODO: Check why there is no opcode in the llvm library for the
-			// resume terminator instruction.
-			case llvm.Ret, llvm.Br, llvm.Switch, llvm.IndirectBr, llvm.Invoke, llvm.Unreachable:
-			default:
-				return nil, errutil.Newf("non-terminator instruction %q at end of basic block", prettyOpcode(opcode))
+			err = bb.addTerm(inst)
+			if err != nil {
+				return nil, errutil.Err(err)
 			}
-			bb.term = inst
 			return bb, nil
 		}
 		stmt, err := parseInst(inst)
@@ -70,4 +66,28 @@ func parseBasicBlock(llBB llvm.BasicBlock) (bb *basicBlock, err error) {
 		bb.stmts = append(bb.stmts, stmt)
 	}
 	return nil, errutil.Newf("invalid basic block %q; contains no instructions", name)
+}
+
+// addTerm adds the provided terminator instruction to the basic block. If the
+// terminator instruction doesn't have a target basic block (e.g. ret) it is
+// parsed and added to the statements list of the basic block instead.
+func (bb *basicBlock) addTerm(term llvm.Value) error {
+	// TODO: Check why there is no opcode in the llvm library for the resume
+	// terminator instruction.
+	switch opcode := term.InstructionOpcode(); opcode {
+	case llvm.Ret:
+		// The return instruction doesn't have any target basic blocks so treat it
+		// like a regular instruction and append it to the list of statements.
+		ret, err := parseRetInst(term)
+		if err != nil {
+			return err
+		}
+		bb.stmts = append(bb.stmts, ret)
+	case llvm.Br, llvm.Switch, llvm.IndirectBr, llvm.Invoke, llvm.Unreachable:
+		// Parse the terminator instruction during the control flow analysis.
+		bb.term = term
+	default:
+		return errutil.Newf("non-terminator instruction %q at end of basic block", prettyOpcode(opcode))
+	}
+	return nil
 }

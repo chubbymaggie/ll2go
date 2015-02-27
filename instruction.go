@@ -113,6 +113,50 @@ func parseOperand(op llvm.Value) (ast.Expr, error) {
 	}
 }
 
+// parseRetInst converts the provided LLVM IR ret instruction into an equivalent
+// Go return statement.
+//
+// Syntax:
+//    ret void
+//    ret <type> <val>
+func parseRetInst(inst llvm.Value) (*ast.ReturnStmt, error) {
+	// TODO: Make more robust by using proper parsing instead of relying on
+	// tokens. The current approach is used for a proof of concept and would fail
+	// for composite literals. This TODO applies to the use of tokens in all
+	// functions.
+
+	// Parse and validate tokens.
+	tokens, err := getTokens(inst)
+	if err != nil {
+		return nil, err
+	}
+	if len(tokens) < 4 {
+		// TODO: Remove debug output.
+		inst.Dump()
+		return nil, errutil.Newf("unable to parse return instruction; expected >= 4 tokens, got %d", len(tokens))
+	}
+	typ := tokens[1]
+	if typ.Kind != lltoken.Type {
+		return nil, errutil.Newf(`invalid return instruction; expected type token, got %q`, typ)
+	}
+
+	// Create and return a void return statement.
+	if typ.Val == "void" {
+		return &ast.ReturnStmt{}, nil
+	}
+
+	// Create and return a return statement.
+	val, err := parseOperand(inst.Operand(0))
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+
+	ret := &ast.ReturnStmt{
+		Results: []ast.Expr{val},
+	}
+	return ret, nil
+}
+
 // getCmpPred parses the provided comparison instruction and returns a Go token
 // equivalent of the comparison predicate.
 //

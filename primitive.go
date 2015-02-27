@@ -43,21 +43,12 @@ func (bb *primitive) Stmts() []ast.Stmt { return bb.stmts }
 func (bb *primitive) Term() llvm.Value { return bb.term }
 
 // restructure attempts to create a structured control flow for a function based
-// on the provided graph (which contains one node per basic block) and the slice
-// of basic blocks. It does so by repeatedly locating and merging structured
-// subgraphs into single nodes until the entire graph is reduced into a single
-// node or no structured subgraphs may be located.
-func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.FuncDecl, error) {
-	for {
-		if len(bbs) <= 1 {
-			fmt.Println("restructure: DONE :)")
-			for _, bb := range bbs {
-				fmt.Println("basic block:")
-				printBB(bb)
-			}
-			fmt.Println()
-			break
-		}
+// on the provided graph (which contains one node per basic block) and the
+// function's basic blocks. It does so by repeatedly locating and merging
+// structured subgraphs into single nodes until the entire graph is reduced into
+// a single node or no structured subgraphs may be located.
+func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, error) {
+	for len(bbs) > 1 {
 		prim, err := locatePrim(graph, bbs)
 		if err != nil {
 			return nil, errutil.Err(err)
@@ -66,7 +57,16 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.FuncDecl, er
 		printBB(prim)
 		bbs[prim.Name()] = prim
 	}
-	panic("not yet implemented")
+	fmt.Println("restructure: DONE :)")
+	for _, bb := range bbs {
+		fmt.Println("basic block:")
+		printBB(bb)
+		block := &ast.BlockStmt{
+			List: bb.Stmts(),
+		}
+		return block, nil
+	}
+	return nil, errutil.New("unable to locate basic block")
 }
 
 // locatePrim locates a control flow primitive in the provided function's
@@ -205,9 +205,6 @@ func createIfPrim(m map[string]string, bbs map[string]BasicBlock, newName string
 	}
 
 	// Create and return new primitive.
-	fmt.Println("### [ cond ] ###")
-	bbCond.Term().Dump()
-	fmt.Println()
 	cond, err := getBrCond(bbCond.Term())
 	if err != nil {
 		return nil, errutil.Err(err)
