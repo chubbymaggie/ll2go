@@ -83,7 +83,7 @@ func parseBinOp(inst llvm.Value, op token.Token) (ast.Stmt, error) {
 //
 // Syntax:
 //    i32 1
-//    i32 %foo
+//    %foo = ...
 func parseOperand(op llvm.Value) (ast.Expr, error) {
 	// TODO: Support *BasicLit, *CompositeLit or *Ident.
 
@@ -92,25 +92,40 @@ func parseOperand(op llvm.Value) (ast.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(tokens) != 3 {
+	if len(tokens) < 2 {
 		// TODO: Remove debug output.
 		op.Dump()
-		return nil, errutil.Newf("unable to parse operand; expected 3 tokens, got %d", len(tokens))
+		return nil, errutil.Newf("unable to parse operand; expected 2 >= tokens, got %d", len(tokens))
 	}
 
 	// TODO: Add support for operand of other types than int.
-
 	// TODO: Parse type.
-	//typ := tokens[0]
 
-	// Create and return the operand.
-	val := tokens[1]
-	switch val.Kind {
-	case lltoken.Int:
-		return &ast.BasicLit{Kind: token.INT, Value: val.Val}, nil
-	default:
-		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", val.Kind)
+	// Create and return a constant operand.
+	//    i32 42
+	if tokens[0].Kind == lltoken.Type {
+		switch tok := tokens[1]; tok.Kind {
+		case lltoken.Int:
+			return &ast.BasicLit{Kind: token.INT, Value: tok.Val}, nil
+		default:
+			return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
+		}
 	}
+
+	// Create and return a variable operand.
+	//    %foo = ...
+	if tokens[1].Kind == lltoken.Equal {
+		switch tok := tokens[0]; tok.Kind {
+		case lltoken.LocalVar, lltoken.LocalID:
+			//    %foo
+			//    %42
+			return getIdent(tok)
+		default:
+			return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
+		}
+	}
+
+	return nil, errutil.New("support for LLVM IR operand not yet implemented")
 }
 
 // parseRetInst converts the provided LLVM IR ret instruction into an equivalent

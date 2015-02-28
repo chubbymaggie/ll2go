@@ -116,7 +116,8 @@ func createPrim(subName string, m map[string]string, bbs map[string]BasicBlock, 
 	case "list.dot":
 		return createListPrim(m, bbs, newName)
 	//case "post_loop.dot":
-	//case "pre_loop.dot":
+	case "pre_loop.dot":
+		return createPreLoopPrim(m, bbs, newName)
 	default:
 		return nil, errutil.Newf("control flow primitive of subgraph %q not yet supported", subName)
 	}
@@ -209,14 +210,71 @@ func createIfPrim(m map[string]string, bbs map[string]BasicBlock, newName string
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
-	body := &ast.BlockStmt{
-		List: bbBody.Stmts(),
-	}
 	ifStmt := &ast.IfStmt{
 		Cond: cond,
-		Body: body,
+		Body: &ast.BlockStmt{List: bbBody.Stmts()},
 	}
 	stmts := append(bbCond.Stmts(), ifStmt)
+	stmts = append(stmts, bbExit.Stmts()...)
+	prim := &primitive{
+		name:  newName,
+		stmts: stmts,
+		term:  bbExit.Term(),
+	}
+	return prim, nil
+}
+
+// createPreLoopPrim creates an pre-test loop primitive based on the identified
+// subgraph, its node pair mapping and its basic blocks. The new control flow
+// primitive conceptually represents a basic block with the given name.
+//
+// Contents of "pre_loop.dot":
+//
+//    digraph pre_loop {
+//       A [label="entry"]
+//       B
+//       C [label="exit"]
+//       A->B [label="true"]
+//       B->A
+//       A->C [label="false"]
+//    }
+func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName string) (*primitive, error) {
+	// Locate graph nodes.
+	nameA, ok := m["A"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "A"`)
+	}
+	nameB, ok := m["B"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "B"`)
+	}
+	nameC, ok := m["C"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "C"`)
+	}
+	bbCond, ok := bbs[nameA]
+	if !ok {
+		return nil, errutil.Newf("unable to locate basic block %q", nameA)
+	}
+	bbBody, ok := bbs[nameB]
+	if !ok {
+		return nil, errutil.Newf("unable to locate basic block %q", nameB)
+	}
+	bbExit, ok := bbs[nameC]
+	if !ok {
+		return nil, errutil.Newf("unable to locate basic block %q", nameC)
+	}
+
+	// Create and return new primitive.
+	cond, err := getBrCond(bbCond.Term())
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	forStmt := &ast.ForStmt{
+		Cond: cond,
+		Body: &ast.BlockStmt{List: bbBody.Stmts()},
+	}
+	stmts := append(bbCond.Stmts(), forStmt)
 	stmts = append(stmts, bbExit.Stmts()...)
 	prim := &primitive{
 		name:  newName,
