@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"log"
 	"path/filepath"
 	"sort"
@@ -59,6 +60,11 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, e
 	}
 	fmt.Println("restructure: DONE :)")
 	for _, bb := range bbs {
+		if bb.Term() != nil {
+			// TODO: Remove debug output.
+			bb.Term().Dump()
+			return nil, errutil.Newf("invalid terminator instruction of last basic block in function; expected nil since return statements are already handled")
+		}
 		fmt.Println("basic block:")
 		printBB(bb)
 		block := &ast.BlockStmt{
@@ -115,7 +121,8 @@ func createPrim(subName string, m map[string]string, bbs map[string]BasicBlock, 
 	//case "if_return.dot":
 	case "list.dot":
 		return createListPrim(m, bbs, newName)
-	//case "post_loop.dot":
+	case "post_loop.dot":
+		return createPostLoopPrim(m, bbs, newName)
 	case "pre_loop.dot":
 		return createPreLoopPrim(m, bbs, newName)
 	default:
@@ -155,6 +162,9 @@ func createListPrim(m map[string]string, bbs map[string]BasicBlock, newName stri
 	}
 
 	// Create and return new primitive.
+	//
+	//    A
+	//    B
 	stmts := append(bbEntry.Stmts(), bbExit.Stmts()...)
 	prim := &primitive{
 		name:  newName,
@@ -206,6 +216,14 @@ func createIfPrim(m map[string]string, bbs map[string]BasicBlock, newName string
 	}
 
 	// Create and return new primitive.
+	//
+	//    A
+	//    if A_cond {
+	//       B
+	//    }
+	//    C
+
+	// Create if-statement.
 	cond, err := getBrCond(bbCond.Term())
 	if err != nil {
 		return nil, errutil.Err(err)
@@ -214,6 +232,8 @@ func createIfPrim(m map[string]string, bbs map[string]BasicBlock, newName string
 		Cond: cond,
 		Body: &ast.BlockStmt{List: bbBody.Stmts()},
 	}
+
+	// Create primitive.
 	stmts := append(bbCond.Stmts(), ifStmt)
 	stmts = append(stmts, bbExit.Stmts()...)
 	prim := &primitive{
@@ -224,7 +244,7 @@ func createIfPrim(m map[string]string, bbs map[string]BasicBlock, newName string
 	return prim, nil
 }
 
-// createPreLoopPrim creates an pre-test loop primitive based on the identified
+// createPreLoopPrim creates a pre-test loop primitive based on the identified
 // subgraph, its node pair mapping and its basic blocks. The new control flow
 // primitive conceptually represents a basic block with the given name.
 //
@@ -265,7 +285,55 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 		return nil, errutil.Newf("unable to locate basic block %q", nameC)
 	}
 
+	if len(bbCond.Stmts()) != 0 {
+		// Produce the following primitive instead of a regular for loop if A
+		// contains statements.
+		//
+		//    for {
+		//       A
+		//       if !A_cond {
+		//          break
+		//       }
+		//       B
+		//    }
+		//    C
+
+		// Create if-statement.
+		cond, err := getBrCond(bbCond.Term())
+		if err != nil {
+			return nil, errutil.Err(err)
+		}
+		ifStmt := &ast.IfStmt{
+			Cond: cond, // TODO: Negate condition?
+			Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
+		}
+
+		// Create for-loop.
+		body := append(bbCond.Stmts(), ifStmt)
+		body = append(body, bbBody.Stmts()...)
+		forStmt := &ast.ForStmt{
+			Body: &ast.BlockStmt{List: body},
+		}
+
+		// Create primitive.
+		stmts := []ast.Stmt{forStmt}
+		stmts = append(stmts, bbExit.Stmts()...)
+		prim := &primitive{
+			name:  newName,
+			stmts: stmts,
+			term:  bbExit.Term(),
+		}
+		return prim, nil
+	}
+
 	// Create and return new primitive.
+	//
+	//    for A_cond {
+	//       B
+	//    }
+	//    C
+
+	// Create for-loop.
 	cond, err := getBrCond(bbCond.Term())
 	if err != nil {
 		return nil, errutil.Err(err)
@@ -274,7 +342,78 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 		Cond: cond,
 		Body: &ast.BlockStmt{List: bbBody.Stmts()},
 	}
-	stmts := append(bbCond.Stmts(), forStmt)
+
+	// Create primitive.
+	stmts := []ast.Stmt{forStmt}
+	stmts = append(stmts, bbExit.Stmts()...)
+	prim := &primitive{
+		name:  newName,
+		stmts: stmts,
+		term:  bbExit.Term(),
+	}
+	return prim, nil
+}
+
+// createPostLoopPrim creates a post-test loop primitive based on the identified
+// subgraph, its node pair mapping and its basic blocks. The new control flow
+// primitive conceptually represents a basic block with the given name.
+//
+// Contents of "post_loop.dot":
+//
+//    digraph post_loop {
+//       A [label="entry"]
+//       B [label="exit"]
+//       A->A [label="true"]
+//       A->B [label="false"]
+//    }
+func createPostLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName string) (*primitive, error) {
+	// Locate graph nodes.
+	nameA, ok := m["A"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "A"`)
+	}
+	nameB, ok := m["B"]
+	if !ok {
+		return nil, errutil.New(`unable to locate node pair for sub node "B"`)
+	}
+	bbBody, ok := bbs[nameA]
+	if !ok {
+		return nil, errutil.Newf("unable to locate basic block %q", nameA)
+	}
+	bbExit, ok := bbs[nameB]
+	if !ok {
+		return nil, errutil.Newf("unable to locate basic block %q", nameB)
+	}
+
+	// Create and return new primitive.
+	//
+	//    for {
+	//       A
+	//       if !A_cond {
+	//          break
+	//       }
+	//    }
+	//    B
+
+	// Create if-statement.
+	cond, err := getBrCond(bbBody.Term())
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	ifStmt := &ast.IfStmt{
+		Cond: cond, // TODO: Negate condition?
+		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
+	}
+
+	// Create for-loop.
+	body := bbBody.Stmts()
+	body = append(body, ifStmt)
+	forStmt := &ast.ForStmt{
+		Body: &ast.BlockStmt{List: body},
+	}
+
+	// Create primitive.
+	stmts := []ast.Stmt{forStmt}
 	stmts = append(stmts, bbExit.Stmts()...)
 	prim := &primitive{
 		name:  newName,
