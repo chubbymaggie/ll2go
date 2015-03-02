@@ -1,3 +1,39 @@
+// TODO: Make use of "go/parser" to locate and make use of "unused variable" and
+// "variable not define" errors.
+//
+// Unused variables are left overs from expression propagation and can be
+// removed.
+//
+//    // from:
+//    _3 := i < 10
+//    if _3 {}
+//
+//    // to (step 1, anonymous variable expression propagation):
+//    _3 := i < 10 // "error: unused variable _3".
+//    if i < 10 {}
+//
+//    // to (step 2, remove unused variables):
+//    if i < 10 {}
+//
+// The use of undefined variables is a hack to fix shadowing issues related to
+// scope.
+//
+//    // from:
+//    i = 0  // "error: variable i not defined"
+//    j = 30 // "error: variable j not defined"
+//    for i < 10 {
+//       j = j - 2*i
+//       i++
+//    }
+//
+//    // to:
+//    i := 0
+//    j := 30
+//    for i < 10 {
+//       j = j - 2*i
+//       i++
+//    }
+
 // HACK: This entire file is a hack!
 //
 // LLVM IR has a notion of unnamed variables and basic blocks which are given
