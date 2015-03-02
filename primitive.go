@@ -33,15 +33,19 @@ type primitive struct {
 
 // Name returns the name of the primitive, which conceptually represents a basic
 // block.
-func (bb *primitive) Name() string { return bb.name }
+func (prim *primitive) Name() string { return prim.name }
 
 // Stmts returns the statements of the primitive, which conceptually represents
 // a basic block.
-func (bb *primitive) Stmts() []ast.Stmt { return bb.stmts }
+func (prim *primitive) Stmts() []ast.Stmt { return prim.stmts }
+
+// SetStmts sets the statements of the primitive, which conceptually represents
+// a basic block.
+func (prim *primitive) SetStmts(stmts []ast.Stmt) { prim.stmts = stmts }
 
 // Term returns the terminator instruction of the primitive, which conceptually
 // represents a basic block.
-func (bb *primitive) Term() llvm.Value { return bb.term }
+func (prim *primitive) Term() llvm.Value { return prim.term }
 
 // restructure attempts to create a structured control flow for a function based
 // on the provided graph (which contains one node per basic block) and the
@@ -60,7 +64,7 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, e
 	}
 	fmt.Println("restructure: DONE :)")
 	for _, bb := range bbs {
-		if bb.Term() != nil {
+		if !bb.Term().IsNil() {
 			// TODO: Remove debug output.
 			bb.Term().Dump()
 			return nil, errutil.Newf("invalid terminator instruction of last basic block in function; expected nil since return statements are already handled")
@@ -285,6 +289,23 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 		return nil, errutil.Newf("unable to locate basic block %q", nameC)
 	}
 
+	// Locate and expand the condition.
+	//
+	//    // from:
+	//    _2 := i < 10
+	//    if _2 {
+	//
+	//    // to:
+	//    if i < 10 {
+	cond, err := getBrCond(bbCond.Term())
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	cond, err = expand(bbCond, cond)
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+
 	if len(bbCond.Stmts()) != 0 {
 		// Produce the following primitive instead of a regular for loop if A
 		// contains statements.
@@ -299,10 +320,6 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 		//    C
 
 		// Create if-statement.
-		cond, err := getBrCond(bbCond.Term())
-		if err != nil {
-			return nil, errutil.Err(err)
-		}
 		ifStmt := &ast.IfStmt{
 			Cond: cond, // TODO: Negate condition?
 			Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
@@ -334,10 +351,6 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 	//    C
 
 	// Create for-loop.
-	cond, err := getBrCond(bbCond.Term())
-	if err != nil {
-		return nil, errutil.Err(err)
-	}
 	forStmt := &ast.ForStmt{
 		Cond: cond,
 		Body: &ast.BlockStmt{List: bbBody.Stmts()},

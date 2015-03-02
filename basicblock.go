@@ -16,6 +16,8 @@ type BasicBlock interface {
 	Name() string
 	// Stmts returns the statements of the basic block.
 	Stmts() []ast.Stmt
+	// SetStmts sets the statements of the basic block.
+	SetStmts(stmts []ast.Stmt)
 	// Term returns the terminator instruction of the basic block.
 	Term() llvm.Value
 }
@@ -37,6 +39,9 @@ func (bb *basicBlock) Name() string { return bb.name }
 
 // Stmts returns the statements of the basic block.
 func (bb *basicBlock) Stmts() []ast.Stmt { return bb.stmts }
+
+// SetStmts sets the statements of the basic block.
+func (bb *basicBlock) SetStmts(stmts []ast.Stmt) { bb.stmts = stmts }
 
 // Term returns the terminator instruction of the basic block.
 func (bb *basicBlock) Term() llvm.Value { return bb.term }
