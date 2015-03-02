@@ -225,6 +225,31 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 		printBB(bb)
 	}
 
+	// Replace PHI instructions with assignment statements in the appropriate
+	// basic blocks.
+	for _, bb := range bbs {
+		block, ok := bb.(*basicBlock)
+		if !ok {
+			return nil, errutil.Newf("invalid basic block type; expected *basicBlock, got %T", bb)
+		}
+		for ident, defs := range block.phis {
+			fmt.Println("block:", block.Name())
+			fmt.Println("  ident:", ident)
+			fmt.Println("  defs: ", defs)
+			for _, def := range defs {
+				assign := &ast.AssignStmt{
+					Lhs: []ast.Expr{ast.NewIdent(ident)},
+					Tok: token.ASSIGN,
+					Rhs: []ast.Expr{def.expr},
+				}
+				bbSrc := bbs[def.bb]
+				stmts := bbSrc.Stmts()
+				stmts = append(stmts, assign)
+				bbSrc.SetStmts(stmts)
+			}
+		}
+	}
+
 	// Perform control flow analysis.
 	body, err := restructure(graph, bbs)
 	if err != nil {

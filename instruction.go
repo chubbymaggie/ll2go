@@ -1,3 +1,6 @@
+// TODO: Fix variable names, e.g.
+//    foo.0 -> foo_0
+
 package main
 
 import (
@@ -170,6 +173,63 @@ func parseRetInst(inst llvm.Value) (*ast.ReturnStmt, error) {
 		Results: []ast.Expr{val},
 	}
 	return ret, nil
+}
+
+// A definition captures the semantics of a PHI instruction's right-hand side,
+// i.e. it specifies a variable definition expression in relation to its source
+// basic block.
+type definition struct {
+	// Source basic block of the variable definition.
+	bb string
+	// Variable definition expression.
+	expr ast.Expr
+}
+
+// parsePHIInst converts the provided LLVM IR phi instruction into an equivalent
+// variable definition mapping.
+//
+// Syntax:
+//    %foo = phi i32 [ 42, %2 ], [ %bar, %3 ]
+func parsePHIInst(inst llvm.Value) (ident string, defs []*definition, err error) {
+	// Parse result.
+	result, err := getResult(inst)
+	if err != nil {
+		return "", nil, errutil.Err(err)
+	}
+	ident = result.(*ast.Ident).Name
+
+	// Parse and validate tokens.
+	tokens, err := getTokens(inst)
+	if err != nil {
+		return "", nil, errutil.Err(err)
+	}
+	if len(tokens) < 10 {
+		return "", nil, errutil.Newf("unable to parse PHI instruction; expected >= 10 tokens, got %d", len(tokens))
+	}
+
+	// Parse operands.
+	for i := 0; i < inst.OperandsCount(); i++ {
+		// TODO: Remove debug output.
+		op := inst.Operand(i)
+		fmt.Println("~~~ [ PHI operand ] ~~~")
+		op.Dump()
+
+		// Parse variable definition expression.
+		expr, err := parseOperand(inst.Operand(i))
+		if err != nil {
+			return "", nil, errutil.Err(err)
+		}
+
+		// Parse source basic block.
+		bbTok := tokens[7+i*6]
+		if bbTok.Kind != lltoken.LocalID {
+			return "", nil, errutil.Newf("invalid operand token, expected LocalID, got %v", bbTok.Kind)
+		}
+		def := &definition{bb: bbTok.Val, expr: expr}
+		defs = append(defs, def)
+	}
+
+	return ident, defs, nil
 }
 
 // getCmpPred parses the provided comparison instruction and returns a Go token

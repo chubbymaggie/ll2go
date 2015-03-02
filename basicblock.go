@@ -30,6 +30,9 @@ type basicBlock struct {
 	name string
 	// Basic block instructions.
 	stmts []ast.Stmt
+	// A map from variable name to variable definitions which represents the PHI
+	// instructions of the basic block.
+	phis map[string][]*definition
 	// Terminator instruction.
 	term llvm.Value
 }
@@ -54,8 +57,9 @@ func parseBasicBlock(llBB llvm.BasicBlock) (bb *basicBlock, err error) {
 	if err != nil {
 		return nil, err
 	}
-	bb = &basicBlock{name: name}
+	bb = &basicBlock{name: name, phis: make(map[string][]*definition)}
 	for inst := llBB.FirstInstruction(); !inst.IsNil(); inst = llvm.NextInstruction(inst) {
+		// Handle terminator instruction.
 		if inst == llBB.LastInstruction() {
 			err = bb.addTerm(inst)
 			if err != nil {
@@ -63,6 +67,18 @@ func parseBasicBlock(llBB llvm.BasicBlock) (bb *basicBlock, err error) {
 			}
 			return bb, nil
 		}
+
+		// Handle PHI instructions.
+		if inst.InstructionOpcode() == llvm.PHI {
+			ident, def, err := parsePHIInst(inst)
+			if err != nil {
+				return nil, errutil.Err(err)
+			}
+			bb.phis[ident] = def
+			continue
+		}
+
+		// Handle non-terminator instructions.
 		stmt, err := parseInst(inst)
 		if err != nil {
 			return nil, err
