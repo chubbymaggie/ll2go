@@ -1,3 +1,12 @@
+// TODO: Verify that the if_return.dot primitive correctly maps
+//    if A_cond {
+//       return
+//    }
+// and not
+//    if A_cond {
+//       f()
+//    }
+
 package main
 
 import (
