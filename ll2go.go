@@ -1,4 +1,7 @@
+//go:generate usagen ll2go
+//go:generate mv z_usage.go z_usage.bak
 //go:generate mango -plain ll2go.go
+//go:generate mv z_usage.bak z_usage.go
 
 // ll2go is a tool which decompiles LLVM IR assembly files to Go source code
 // (e.g. *.ll -> *.go).
