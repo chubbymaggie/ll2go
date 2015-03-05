@@ -30,7 +30,7 @@ TODO
 
 ## Dependencies
 
-* [llvm.org/llvm/bindings/go/llvm](https://godoc.org/llvm.org/llvm/bindings/go/llvm) with [unnamed.patch](unnamed.patch)
+* [llvm.org/llvm/bindings/go/llvm](https://godoc.org/llvm.org/llvm/bindings/go/llvm) with [unnamed.patch](https://raw.githubusercontent.com/mewrev/ll2dot/master/unnamed.patch)
 * `llvm-as` from [LLVM](http://llvm.org/)
 * `dot` from [GraphViz](http://www.graphviz.org/)
 * [ll2dot](https://github.com/mewrev/ll2dot)
