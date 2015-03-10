@@ -156,7 +156,7 @@ func ll2go(llPath string) error {
 
 	// Create foo.go.
 	file := &ast.File{
-		Name: ast.NewIdent(pkgName),
+		Name: newIdent(pkgName),
 	}
 
 	// TODO: Implement support for global variables.
@@ -241,7 +241,7 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 			fmt.Println("  defs: ", defs)
 			for _, def := range defs {
 				assign := &ast.AssignStmt{
-					Lhs: []ast.Expr{ast.NewIdent(ident)},
+					Lhs: []ast.Expr{newIdent(ident)},
 					Tok: token.ASSIGN,
 					Rhs: []ast.Expr{def.expr},
 				}
@@ -271,7 +271,7 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 // provided function name, function signature and basic block.
 func createFunc(name string, sig *ast.FuncType, body *ast.BlockStmt) (*ast.FuncDecl, error) {
 	f := &ast.FuncDecl{
-		Name: ast.NewIdent(name),
+		Name: newIdent(name),
 		Type: sig,
 		Body: body,
 	}

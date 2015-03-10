@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"strings"
+	"unicode"
 
 	"github.com/mewkiz/pkg/errutil"
 	lltoken "github.com/mewlang/llvm/asm/token"
@@ -327,9 +329,9 @@ func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
 		//    0
 		switch tok.Val {
 		case "0":
-			return ast.NewIdent("false"), nil
+			return newIdent("false"), nil
 		case "1":
-			return ast.NewIdent("true"), nil
+			return newIdent("true"), nil
 		default:
 			return nil, errutil.Newf("invalid integer value; expected boolean, got %q", tok.Val)
 		}
@@ -342,12 +344,12 @@ func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
 func getIdent(tok lltoken.Token) (ident ast.Expr, err error) {
 	switch tok.Kind {
 	case lltoken.KwTrue, lltoken.KwFalse, lltoken.LocalVar:
-		return ast.NewIdent(tok.Val), nil
+		return newIdent(tok.Val), nil
 	case lltoken.LocalID:
 		// Translate local variable IDs (e.g. "%42") to Go identifiers by adding
 		// an underscore prefix (e.g. "_42").
 		name := "_" + tok.Val
-		return ast.NewIdent(name), nil
+		return newIdent(name), nil
 	default:
 		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
 	}
@@ -377,6 +379,20 @@ func getResult(inst llvm.Value) (result ast.Expr, err error) {
 	default:
 		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
 	}
+}
+
+// newIdent returns a new identifier based on the given string after replacing
+// any illegal characters with underscore.
+func newIdent(s string) *ast.Ident {
+	f := func(r rune) rune {
+		switch {
+		case unicode.IsLetter(r), unicode.IsNumber(r):
+			// valid rune in identifier.
+			return r
+		}
+		return '_'
+	}
+	return ast.NewIdent(strings.Map(f, s))
 }
 
 // prettyOpcode returns a string representation of the given LLVM IR instruction
