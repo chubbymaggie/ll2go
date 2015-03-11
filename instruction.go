@@ -382,8 +382,14 @@ func getResult(inst llvm.Value) (result ast.Expr, err error) {
 }
 
 // newIdent returns a new identifier based on the given string after replacing
-// any illegal characters with underscore.
+// any illegal characters with underscore and dropping any numeric suffixes
+// (e.g. "i.0" and "i.1" => "i").
 func newIdent(s string) *ast.Ident {
+	// Drop numeric suffix.
+	if pos := strings.Index(s, "."); pos != -1 {
+		s = s[:pos]
+	}
+
 	f := func(r rune) rune {
 		switch {
 		case unicode.IsLetter(r), unicode.IsNumber(r):
