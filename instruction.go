@@ -304,16 +304,16 @@ func getCmpPred(inst llvm.Value) (token.Token, error) {
 //
 // Syntax:
 //    br i1 <cond>, label <target_true>, label <target_false>
-func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
+func getBrCond(term llvm.Value) (cond ast.Expr, targetTrue, targetFalse string, err error) {
 	// Parse and validate tokens.
 	tokens, err := getTokens(term)
 	if err != nil {
-		return nil, err
+		return nil, "", "", err
 	}
 	if len(tokens) != 10 {
 		// TODO: Remove debug output.
 		term.Dump()
-		return nil, errutil.Newf("unable to parse conditional branch instruction; expected 10 tokens, got %d", len(tokens))
+		return nil, "", "", errutil.Newf("unable to parse conditional branch instruction; expected 10 tokens, got %d", len(tokens))
 	}
 
 	// Create and return the condition.
@@ -323,20 +323,24 @@ func getBrCond(term llvm.Value) (cond ast.Expr, err error) {
 		//    false
 		//    %foo
 		//    %42
-		return getIdent(tok)
+		ident, err := getIdent(tok)
+		if err != nil {
+			return nil, "", "", errutil.Err(err)
+		}
+		return ident, tokens[5].Val, tokens[8].Val, nil
 	case lltoken.Int:
 		//    1
 		//    0
 		switch tok.Val {
 		case "0":
-			return newIdent("false"), nil
+			return newIdent("false"), tokens[5].Val, tokens[8].Val, nil
 		case "1":
-			return newIdent("true"), nil
+			return newIdent("true"), tokens[5].Val, tokens[8].Val, nil
 		default:
-			return nil, errutil.Newf("invalid integer value; expected boolean, got %q", tok.Val)
+			return nil, "", "", errutil.Newf("invalid integer value; expected boolean, got %q", tok.Val)
 		}
 	default:
-		return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
+		return nil, "", "", errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
 	}
 }
 

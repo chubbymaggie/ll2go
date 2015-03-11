@@ -239,7 +239,7 @@ func createIfPrim(m map[string]string, bbs map[string]BasicBlock, newName string
 	//    C
 
 	// Create if-statement.
-	cond, err := getBrCond(bbCond.Term())
+	cond, _, _, err := getBrCond(bbCond.Term())
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
@@ -297,6 +297,25 @@ func createIfElsePrim(m map[string]string, bbs map[string]BasicBlock, newName st
 	if !ok {
 		return nil, errutil.Newf("unable to locate basic block %q", nameA)
 	}
+
+	// The body nodes (B and C) of if-else primitives are indistinguishable at
+	// the graph level. Verify their names against the terminator instruction of
+	// the basic block and swap them if necessary.
+	cond, targetTrue, targetFalse, err := getBrCond(bbCond.Term())
+	if err != nil {
+		return nil, errutil.Err(err)
+	}
+	if targetTrue != nameB && targetTrue != nameC {
+		return nil, errutil.Newf("invalid target true branch; got %q, expected %q or %q", targetTrue, nameB, nameC)
+	}
+	if targetFalse != nameB && targetFalse != nameC {
+		return nil, errutil.Newf("invalid target false branch; got %q, expected %q or %q", targetFalse, nameB, nameC)
+	}
+	fmt.Printf("B=%q, target true =%q\n", nameB, targetTrue)
+	nameB = targetTrue
+	fmt.Printf("C=%q, target false=%q\n", nameC, targetFalse)
+	nameC = targetFalse
+
 	bbBody1, ok := bbs[nameB]
 	if !ok {
 		return nil, errutil.Newf("unable to locate basic block %q", nameB)
@@ -321,10 +340,6 @@ func createIfElsePrim(m map[string]string, bbs map[string]BasicBlock, newName st
 	//    D
 
 	// Create if-else statement.
-	cond, err := getBrCond(bbCond.Term())
-	if err != nil {
-		return nil, errutil.Err(err)
-	}
 	ifElseStmt := &ast.IfStmt{
 		Cond: cond,
 		Body: &ast.BlockStmt{List: bbBody1.Stmts()},
@@ -391,7 +406,7 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 	//
 	//    // to:
 	//    if i < 10 {
-	cond, err := getBrCond(bbCond.Term())
+	cond, _, _, err := getBrCond(bbCond.Term())
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
@@ -503,7 +518,7 @@ func createPostLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName 
 	//    B
 
 	// Create if-statement.
-	cond, err := getBrCond(bbBody.Term())
+	cond, _, _, err := getBrCond(bbBody.Term())
 	if err != nil {
 		return nil, errutil.Err(err)
 	}
