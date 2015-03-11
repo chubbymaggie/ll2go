@@ -5,13 +5,13 @@
 package main
 
 func init() {
-	addTestCases(resolveTests, resolve)
+	addTestCases(unresolvedTests, unresolved)
 }
 
-var resolveTests = []testCase{
+var unresolvedTests = []testCase{
 	// i=0,
 	{
-		Name: "resolve.0",
+		Name: "unresolved.0",
 		In: `package main
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 	},
 	// i=1,
 	{
-		Name: "resolve.1",
+		Name: "unresolved.1",
 		In: `package main
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 	},
 	// i=2,
 	{
-		Name: "resolve.2",
+		Name: "unresolved.2",
 		In: `package main
 
 func main() {
@@ -67,7 +67,7 @@ func main() {
 	},
 	// i=3,
 	{
-		Name: "resolve.3",
+		Name: "unresolved.3",
 		In: `package main
 
 var i int
@@ -89,15 +89,12 @@ func main() {
 }
 `,
 	},
+	// TODO: Make unresolved idempotent and enable this test case. If anyone can
+	// think of a clean way to do this, please let me know.
 	/*
-		// The output of this test case is correct once "go fix" has been applied
-		// twice. Adjusting the output so that the first round passes gives the
-		// following error: "applied fixes during second round". If anyone knows a
-		// solution to this, give me a shout.
-		//
 		// i=4,
 		{
-			Name: "resolve.4",
+			Name: "unresolved.4",
 			In: `package main
 
 			func main() {
@@ -115,7 +112,7 @@ func main() {
 				if j := 0; true {
 					j = 10
 				}
-				if j := 1; true {
+				if j = 1; true {
 					j = 20
 				}
 			}

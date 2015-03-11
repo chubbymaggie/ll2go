@@ -10,17 +10,17 @@ import (
 )
 
 func init() {
-	register(resolveFix)
+	register(unresolvedFix)
 }
 
-var resolveFix = fix{
-	"resolve",
+var unresolvedFix = fix{
+	"unresolved",
 	"2015-03-11",
-	resolve,
+	unresolved,
 	`Replace assignment statements with declare and initialize statements at the first occurance of an unresolved identifier.`,
 }
 
-func resolve(file *ast.File) bool {
+func unresolved(file *ast.File) bool {
 	fixed := false
 
 	// Apply the following transitions:
