@@ -139,7 +139,7 @@ func processFile(filename string, useStdin bool) error {
 		if allowed != nil && !allowed[fix.name] {
 			continue
 		}
-		if fix.f(newFile) {
+		for fix.f(newFile) {
 			fixed = true
 			fmt.Fprintf(&fixlog, " %s", fix.name)
 
@@ -158,6 +158,12 @@ func processFile(filename string, useStdin bool) error {
 					os.Exit(exitCode)
 				}
 				return err
+			}
+
+			// All go fix rules are idempotent and only need to run once, except
+			// for the "unresolved" go fix rule.
+			if fix.name != "unresolved" {
+				break
 			}
 		}
 	}

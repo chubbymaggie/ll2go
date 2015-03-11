@@ -89,9 +89,9 @@ func main() {
 }
 `,
 	},
-	// TODO: Make unresolved idempotent and enable this test case. If anyone can
-	// think of a clean way to do this, please let me know.
 	/*
+		// TODO: Make unresolved idempotent and enable this test case. If anyone can
+		// think of a clean way to do this, please let me know.
 		// i=4,
 		{
 			Name: "unresolved.4",
