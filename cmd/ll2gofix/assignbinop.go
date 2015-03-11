@@ -64,12 +64,44 @@ func assignbinop(file *ast.File) bool {
 		if !ok {
 			return
 		}
+		x, y := binExpr.X, binExpr.Y
+		one := false
+		switch {
+		case isName(x, ident.Name):
+			// x = x + y
+			one = isOne(y)
+			rhs = []ast.Expr{y}
+		case isName(y, ident.Name):
+			// x = y + x
+			one = isOne(x)
+			rhs = []ast.Expr{x}
+		default:
+			return
+		}
 		var op token.Token
 		switch binExpr.Op {
 		case token.ADD:
 			op = token.ADD_ASSIGN // +=
+			if one {
+				// x++
+				*stmt = &ast.IncDecStmt{
+					X:   ident,
+					Tok: token.INC,
+				}
+				fixed = true
+				return
+			}
 		case token.SUB:
 			op = token.SUB_ASSIGN // -=
+			if one {
+				// x--
+				*stmt = &ast.IncDecStmt{
+					X:   ident,
+					Tok: token.DEC,
+				}
+				fixed = true
+				return
+			}
 		case token.MUL:
 			op = token.MUL_ASSIGN // *=
 		case token.QUO:
@@ -91,18 +123,6 @@ func assignbinop(file *ast.File) bool {
 		default:
 			log.Fatalf("unknown binary operand %v\n", binExpr.Op)
 		}
-
-		x, y := binExpr.X, binExpr.Y
-		switch {
-		case isName(x, ident.Name):
-			// x = x + y
-			rhs = []ast.Expr{y}
-		case isName(y, ident.Name):
-			// x = y + x
-			rhs = []ast.Expr{x}
-		default:
-			return
-		}
 		*stmt = &ast.AssignStmt{
 			Lhs: lhs,
 			Tok: op,
@@ -112,4 +132,10 @@ func assignbinop(file *ast.File) bool {
 	})
 
 	return fixed
+}
+
+// isOne returns true if n is the integer literal 1, and false otherwise.
+func isOne(n ast.Expr) bool {
+	lit, ok := n.(*ast.BasicLit)
+	return ok && lit.Kind == token.INT && lit.Value == "1"
 }

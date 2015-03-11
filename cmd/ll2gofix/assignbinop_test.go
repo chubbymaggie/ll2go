@@ -15,13 +15,13 @@ var assignbinopTests = []testCase{
 		In: `package main
 
 func main() {
-	x = x + 1
+	x = x - 1
 }
 `,
 		Out: `package main
 
 func main() {
-	x += 1
+	x--
 }
 `,
 	},
@@ -37,7 +37,7 @@ func main() {
 		Out: `package main
 
 func main() {
-	x += 1
+	x++
 }
 `,
 	},
@@ -74,7 +74,29 @@ func main() {
 func main() {
 	i := 0
 	for i < 10 {
-		i += 1
+		i++
+	}
+}
+`,
+	},
+	// i=4,
+	{
+		Name: "assignbinop.3",
+		In: `package main
+
+func main() {
+	i := 0
+	for i < 10 {
+		i = i + 2
+	}
+}
+`,
+		Out: `package main
+
+func main() {
+	i := 0
+	for i < 10 {
+		i += 2
 	}
 }
 `,
