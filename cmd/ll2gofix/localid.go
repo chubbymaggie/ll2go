@@ -17,7 +17,10 @@ func init() {
 
 var localidFix = fix{
 	"localid",
-	"2015-03-11",
+	// HACK: Fixes are sorted by date. The Unix epoch makes sure that the local
+	// ID replacement rule happens before all other rules. This enables
+	// assignbinop simplification directly.
+	"1970-01-01",
 	localid,
 	`Replace the use of local variable IDs with their definition.`,
 }
