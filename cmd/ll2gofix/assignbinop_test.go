@@ -5,80 +5,77 @@
 package main
 
 func init() {
-	addTestCases(localidTests, localid)
+	addTestCases(assignbinopTests, assignbinop)
 }
 
-// TODO: Remember to add parenthesis to test cases when the ast.ParenExpr TODO
-// in localid.go is fixed.
-
-var localidTests = []testCase{
+var assignbinopTests = []testCase{
 	// i=0,
 	{
-		Name: "localid.0",
+		Name: "assignbinop.0",
 		In: `package main
 
 func main() {
-	_0 := i < 10
-	if _0 {
-		i = 20
-	}
+	x = x + 1
 }
 `,
 		Out: `package main
 
 func main() {
-
-	if i < 10 {
-		i = 20
-	}
+	x += 1
 }
 `,
 	},
 	// i=1,
 	{
-		Name: "localid.1",
+		Name: "assignbinop.1",
 		In: `package main
 
 func main() {
-	i := 0
-	_0 = i < 10
-	for _0 {
-		_1 := i + 1
-		i = _1
-	}
+	x = 1 + x
 }
 `,
 		Out: `package main
 
 func main() {
-	i := 0
-
-	for i < 10 {
-
-		i = i + 1
-
-	}
+	x += 1
 }
 `,
 	},
 	// i=2,
 	{
-		Name: "localid.2",
+		Name: "assignbinop.2",
 		In: `package main
 
 func main() {
-	_0 := i + j
-	_1 := x * y
-	a := _0 + _1
+	x = x / (5 - 3)
 }
 `,
 		Out: `package main
 
 func main() {
+	x /= (5 - 3)
+}
+`,
+	},
+	// i=3,
+	{
+		Name: "assignbinop.3",
+		In: `package main
 
-	a := i + j +
-		x*y
+func main() {
+	i := 0
+	for i < 10 {
+		i = i + 1
+	}
+}
+`,
+		Out: `package main
 
+func main() {
+	i := 0
+	for i < 10 {
+		i += 1
+	}
 }
 `,
 	},

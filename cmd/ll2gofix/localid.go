@@ -62,16 +62,20 @@ func localid(file *ast.File) bool {
 		}
 		if name := ident.Name; isLocalID(name) {
 			rhs := assignStmt.Rhs[0]
+			// TODO: Make use of &ast.ParenExpr{} and implement a simplification
+			// pass which takes operator precedence into account.
 			f := func(pos token.Pos) ast.Expr {
 				fixed = true
-				return &ast.ParenExpr{X: rhs}
+				return rhs
+				//return &ast.ParenExpr{X: rhs}
 			}
 			fnot := func(pos token.Pos) ast.Expr {
 				fixed = true
 				return &ast.UnaryExpr{
 					OpPos: pos,
 					Op:    token.NOT,
-					X:     &ast.ParenExpr{X: rhs},
+					X:     rhs,
+					//X:     &ast.ParenExpr{X: rhs},
 				}
 			}
 			scope := getScope(file, ident)
