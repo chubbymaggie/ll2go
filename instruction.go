@@ -80,6 +80,8 @@ func parseBinOp(inst llvm.Value, op token.Token) (ast.Stmt, error) {
 	}
 	lhs := []ast.Expr{result}
 	rhs := []ast.Expr{&ast.BinaryExpr{X: x, Op: op, Y: y}}
+	// TODO: Use "=" instead of ":=" and let ll2gofix and grind handle the ":="
+	// to "=" propagation.
 	return &ast.AssignStmt{Lhs: lhs, Tok: token.DEFINE, Rhs: rhs}, nil
 }
 
