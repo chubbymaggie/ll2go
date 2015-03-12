@@ -18,7 +18,7 @@ var forloopFix = fix{
 	// NOTE: The "forloop" go fix rule depends on the "unresolved" go fix rule as
 	// it locates undeclared variables and declares them using ":=". The date of
 	// "forloop" must therefore be later in time than the date of "unresolved".
-	"2014-03-12",
+	"2015-03-12",
 	forloop,
 	`Add initialization and post-statements to for-loops.`,
 }
