@@ -17,9 +17,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/decomp/graphs"
-	"github.com/decomp/graphs/iso"
-	"github.com/decomp/graphs/merge"
+	"decomp.org/x/graphs"
+	"decomp.org/x/graphs/iso"
+	"decomp.org/x/graphs/merge"
 	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
 	"github.com/mewkiz/pkg/goutil"
@@ -574,7 +574,7 @@ var (
 
 func init() {
 	// Parse subgraphs representing common control flow primitives.
-	subDir, err := goutil.SrcDir("github.com/decomp/graphs/testdata/primitives")
+	subDir, err := goutil.SrcDir("decomp.org/x/graphs/testdata/primitives")
 	if err != nil {
 		log.Fatalln(errutil.Err(err))
 	}
