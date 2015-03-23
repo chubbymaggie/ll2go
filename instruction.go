@@ -10,8 +10,8 @@ import (
 	"strings"
 	"unicode"
 
+	lltoken "github.com/llir/llvm/asm/token"
 	"github.com/mewkiz/pkg/errutil"
-	lltoken "github.com/mewlang/llvm/asm/token"
 	"llvm.org/llvm/bindings/go/llvm"
 )
 

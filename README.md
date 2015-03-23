@@ -4,14 +4,14 @@ This project is a *work in progress*. The implementation is *incomplete* and sub
 
 # ll2go
 
-[![GoDoc](https://godoc.org/github.com/mewrev/ll2go?status.svg)](https://godoc.org/github.com/mewrev/ll2go)
+[![GoDoc](https://godoc.org/github.com/decomp/ll2go?status.svg)](https://godoc.org/github.com/decomp/ll2go)
 
 `ll2go` is a tool which decompiles LLVM IR assembly files to Go source code (e.g. *.ll -> *.go).
 
 ## Installation
 
 ```shell
-go get github.com/mewrev/ll2go
+go get github.com/decomp/ll2go
 ```
 
 ## Usage
@@ -30,10 +30,10 @@ TODO
 
 ## Dependencies
 
-* [llvm.org/llvm/bindings/go/llvm](https://godoc.org/llvm.org/llvm/bindings/go/llvm) with [unnamed.patch](https://raw.githubusercontent.com/mewrev/ll2dot/master/unnamed.patch)
+* [llvm.org/llvm/bindings/go/llvm](https://godoc.org/llvm.org/llvm/bindings/go/llvm) with [unnamed.patch](https://raw.githubusercontent.com/decomp/ll2dot/master/unnamed.patch)
 * `llvm-as` from [LLVM](http://llvm.org/)
 * `dot` from [GraphViz](http://www.graphviz.org/)
-* [ll2dot](https://github.com/mewrev/ll2dot)
+* [ll2dot](https://github.com/decomp/ll2dot)
 
 ## Public domain
 
