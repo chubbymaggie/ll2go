@@ -14,6 +14,8 @@ Please note that `ll2go` is meant to be used in combination with [go-post] which
 
 ## Installation
 
+* Install the [dependencies](https://github.com/decomp/ll2go#dependencies) before running go-get.
+
 ```shell
 go get decomp.org/x/cmd/ll2go
 ```
