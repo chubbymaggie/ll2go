@@ -57,10 +57,10 @@ func (prim *primitive) SetStmts(stmts []ast.Stmt) { prim.stmts = stmts }
 func (prim *primitive) Term() llvm.Value { return prim.term }
 
 // restructure attempts to create a structured control flow for a function based
-// on the provided graph (which contains one node per basic block) and the
-// function's basic blocks. It does so by repeatedly locating and merging
-// structured subgraphs into single nodes until the entire graph is reduced into
-// a single node or no structured subgraphs may be located.
+// on the provided control flow graph (which contains one node per basic block)
+// and the function's basic blocks. It does so by repeatedly locating and
+// merging structured subgraphs into single nodes until the entire graph is
+// reduced into a single node or no structured subgraphs may be located.
 func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, error) {
 	for len(bbs) > 1 {
 		prim, err := locatePrim(graph, bbs)
