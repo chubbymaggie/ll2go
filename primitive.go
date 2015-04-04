@@ -567,8 +567,8 @@ var (
 	// subNames specifies the name of each subgraph in subs, arranged in the same
 	// order.
 	subNames = []string{
-		"if.dot", "if_else.dot", "pre_loop.dot", "post_loop.dot", "if_return.dot",
-		"list.dot",
+		"pre_loop.dot", "post_loop.dot", "list.dot",
+		"if.dot", "if_else.dot", "if_return.dot",
 	}
 )
 
