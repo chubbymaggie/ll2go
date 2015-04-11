@@ -430,7 +430,7 @@ func createPreLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName s
 
 		// Create if-statement.
 		ifStmt := &ast.IfStmt{
-			Cond: cond, // TODO: Negate condition?
+			Cond: &ast.UnaryExpr{Op: token.NOT, X: cond}, // negate condition
 			Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
 		}
 
@@ -523,7 +523,7 @@ func createPostLoopPrim(m map[string]string, bbs map[string]BasicBlock, newName 
 		return nil, errutil.Err(err)
 	}
 	ifStmt := &ast.IfStmt{
-		Cond: cond, // TODO: Negate condition?
+		Cond: &ast.UnaryExpr{Op: token.NOT, X: cond}, // negate condition
 		Body: &ast.BlockStmt{List: []ast.Stmt{&ast.BranchStmt{Tok: token.BREAK}}},
 	}
 
