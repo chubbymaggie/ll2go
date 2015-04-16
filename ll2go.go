@@ -91,7 +91,7 @@ func ll2go(llPath string) error {
 		if !flagQuiet {
 			log.Printf("Creating control flow graphs for %q.\n", filepath.Base(llPath))
 		}
-		cmd := exec.Command("ll2dot", "-q", "-f", llPath)
+		cmd := exec.Command("ll2dot", "-q", "-funcs", flagFuncs, "-f", llPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		err := cmd.Run()
