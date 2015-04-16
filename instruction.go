@@ -28,7 +28,7 @@ func parseInst(inst llvm.Value) (ast.Stmt, error) {
 	//    %foo = ...
 	opcode := inst.InstructionOpcode()
 	if _, err := getResult(inst); err == nil {
-		// Standard Binary Operators
+		// Binary Operations
 		switch opcode {
 		case llvm.Add, llvm.FAdd:
 			return parseBinOp(inst, token.ADD)
@@ -42,6 +42,19 @@ func parseInst(inst llvm.Value) (ast.Stmt, error) {
 		case llvm.URem, llvm.SRem, llvm.FRem:
 			// TODO: Handle signed and unsigned mod separately.
 			return parseBinOp(inst, token.REM)
+
+		// Bitwise Binary Operations
+		case llvm.Shl:
+			return parseBinOp(inst, token.SHL)
+		case llvm.LShr, llvm.AShr:
+			// TODO: Handle logical and arithmetic shift right separately.
+			return parseBinOp(inst, token.SHR)
+		case llvm.And:
+			return parseBinOp(inst, token.AND)
+		case llvm.Or:
+			return parseBinOp(inst, token.OR)
+		case llvm.Xor:
+			return parseBinOp(inst, token.XOR)
 
 		// Other Operators
 		case llvm.ICmp, llvm.FCmp:
