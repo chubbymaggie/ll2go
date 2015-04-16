@@ -182,6 +182,8 @@ func ll2go(llPath string) error {
 		jsonPath := path.Join(dotDir, jsonName)
 		if ok, _ := osutil.Exists(jsonPath); !ok {
 			cmd := exec.Command("restructure", "-o", jsonPath, dotPath)
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 			if !flagQuiet {
 				log.Printf("Structuring function: %q\n", funcName)
 			}
