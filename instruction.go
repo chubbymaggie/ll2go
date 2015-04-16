@@ -105,7 +105,7 @@ func parseBinOp(inst llvm.Value, op token.Token) (ast.Stmt, error) {
 //    i32 1
 //    %foo = ...
 func parseOperand(op llvm.Value) (ast.Expr, error) {
-	// TODO: Support *BasicLit, *CompositeLit or *Ident.
+	// TODO: Support *BasicLit, *CompositeLit.
 
 	// Parse and validate tokens.
 	tokens, err := getTokens(op)
@@ -127,6 +127,8 @@ func parseOperand(op llvm.Value) (ast.Expr, error) {
 		switch tok := tokens[1]; tok.Kind {
 		case lltoken.Int:
 			return &ast.BasicLit{Kind: token.INT, Value: tok.Val}, nil
+		case lltoken.LocalVar:
+			return getIdent(tok)
 		default:
 			return nil, errutil.Newf("support for LLVM IR token kind %v not yet implemented", tok.Kind)
 		}
