@@ -8,6 +8,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -16,9 +17,11 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 
+	xprimitive "decomp.org/x/graphs/primitive"
 	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
 	"github.com/mewkiz/pkg/osutil"
@@ -170,7 +173,36 @@ func ll2go(llPath string) error {
 		if err != nil {
 			return errutil.Err(err)
 		}
-		f, err := parseFunc(graph, module, funcName)
+
+		// Structure the CFG.
+		dotDir := basePath + "_graphs"
+		dotName := funcName + ".dot"
+		dotPath := path.Join(dotDir, dotName)
+		jsonName := funcName + ".json"
+		jsonPath := path.Join(dotDir, jsonName)
+		if ok, _ := osutil.Exists(jsonPath); !ok {
+			cmd := exec.Command("restructure", "-o", jsonPath, dotPath)
+			if !flagQuiet {
+				log.Printf("Structuring function: %q\n", funcName)
+			}
+			err = cmd.Run()
+			if err != nil {
+				return errutil.Err(err)
+			}
+		}
+		var hprims []*xprimitive.Primitive
+		fr, err := os.Open(jsonPath)
+		if err != nil {
+			return errutil.Err(err)
+		}
+		defer fr.Close()
+		dec := json.NewDecoder(fr)
+		err = dec.Decode(&hprims)
+		if err != nil {
+			return errutil.Err(err)
+		}
+
+		f, err := parseFunc(graph, module, funcName, hprims)
 		if err != nil {
 			return errutil.Err(err)
 		}
@@ -208,7 +240,7 @@ func parseCFG(basePath, funcName string) (graph *dot.Graph, err error) {
 
 // parseFunc parses the given function and attempts to construct an equivalent
 // Go function declaration AST node.
-func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.FuncDecl, error) {
+func parseFunc(graph *dot.Graph, module llvm.Module, funcName string, hprims []*xprimitive.Primitive) (*ast.FuncDecl, error) {
 	llFunc := module.NamedFunction(funcName)
 	if llFunc.IsNil() {
 		return nil, errutil.Newf("unable to locate function %q", funcName)
@@ -254,7 +286,7 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string) (*ast.Func
 	}
 
 	// Perform control flow analysis.
-	body, err := restructure(graph, bbs)
+	body, err := restructure(graph, bbs, hprims)
 	if err != nil {
 		return nil, errutil.Err(err)
 	}

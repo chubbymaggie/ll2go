@@ -14,15 +14,12 @@ import (
 	"go/ast"
 	"go/token"
 	"log"
-	"path/filepath"
 	"sort"
 
 	"decomp.org/x/graphs"
-	"decomp.org/x/graphs/iso"
-	"decomp.org/x/graphs/merge"
+	xprimitive "decomp.org/x/graphs/primitive"
 	"github.com/mewfork/dot"
 	"github.com/mewkiz/pkg/errutil"
-	"github.com/mewkiz/pkg/goutil"
 	"llvm.org/llvm/bindings/go/llvm"
 )
 
@@ -61,9 +58,23 @@ func (prim *primitive) Term() llvm.Value { return prim.term }
 // and the function's basic blocks. It does so by repeatedly locating and
 // merging structured subgraphs into single nodes until the entire graph is
 // reduced into a single node or no structured subgraphs may be located.
-func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, error) {
-	for len(bbs) > 1 {
-		prim, err := locatePrim(graph, bbs)
+func restructure(graph *dot.Graph, bbs map[string]BasicBlock, hprims []*xprimitive.Primitive) (*ast.BlockStmt, error) {
+	for _, hprim := range hprims {
+		subName := hprim.Prim // identified primitive; e.g. "if", "if_else"
+		m := hprim.Nodes      // node mapping
+		newName := hprim.Node // new node name
+
+		// Create a control flow primitive based on the identified subgraph.
+		primBBs := make(map[string]BasicBlock)
+		for _, gname := range m {
+			bb, ok := bbs[gname]
+			if !ok {
+				return nil, errutil.Newf("unable to locate basic block %q", gname)
+			}
+			primBBs[gname] = bb
+			delete(bbs, gname)
+		}
+		prim, err := createPrim(subName, m, primBBs, newName)
 		if err != nil {
 			return nil, errutil.Err(err)
 		}
@@ -71,7 +82,9 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, e
 		printBB(prim)
 		bbs[prim.Name()] = prim
 	}
-	fmt.Println("restructure: DONE :)")
+
+	log.Println("len(bbs):", len(bbs))
+
 	for _, bb := range bbs {
 		if !bb.Term().IsNil() {
 			// TODO: Remove debug output.
@@ -88,57 +101,22 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock) (*ast.BlockStmt, e
 	return nil, errutil.New("unable to locate basic block")
 }
 
-// locatePrim locates a control flow primitive in the provided function's
-// control flow graph and its basic blocks.
-func locatePrim(graph *dot.Graph, bbs map[string]BasicBlock) (*primitive, error) {
-	for i, sub := range subs {
-		// Locate an isomorphism of sub in graph.
-		m, ok := iso.Search(graph, sub)
-		if !ok {
-			// No match, try next control flow primitive.
-			continue
-		}
-		printMapping(graph, sub, m)
-
-		// Merge the nodes of the subgraph isomorphism into a single node.
-		newName, err := merge.Merge(graph, m, sub)
-		if err != nil {
-			return nil, errutil.Err(err)
-		}
-
-		// Create a control flow primitive based on the identified subgraph.
-		primBBs := make(map[string]BasicBlock)
-		for _, gname := range m {
-			bb, ok := bbs[gname]
-			if !ok {
-				return nil, errutil.Newf("unable to locate basic block %q", gname)
-			}
-			primBBs[gname] = bb
-			delete(bbs, gname)
-		}
-		subName := subNames[i]
-		return createPrim(subName, m, primBBs, newName)
-	}
-
-	return nil, errutil.New("unable to locate control flow primitive")
-}
-
 // createPrim creates a control flow primitive based on the identified subgraph
 // and its node pair mapping and basic blocks. The new control flow primitive
 // conceptually forms a new basic block with the specified name.
 func createPrim(subName string, m map[string]string, bbs map[string]BasicBlock, newName string) (*primitive, error) {
 	switch subName {
-	case "if.dot":
+	case "if":
 		return createIfPrim(m, bbs, newName)
-	case "if_else.dot":
+	case "if_else":
 		return createIfElsePrim(m, bbs, newName)
-	case "if_return.dot":
+	case "if_return":
 		return createIfPrim(m, bbs, newName)
-	case "list.dot":
+	case "list":
 		return createListPrim(m, bbs, newName)
-	case "post_loop.dot":
+	case "post_loop":
 		return createPostLoopPrim(m, bbs, newName)
-	case "pre_loop.dot":
+	case "pre_loop":
 		return createPreLoopPrim(m, bbs, newName)
 	default:
 		return nil, errutil.Newf("control flow primitive of subgraph %q not yet supported", subName)
@@ -557,33 +535,5 @@ func printMapping(graph *dot.Graph, sub *graphs.SubGraph, m map[string]string) {
 	fmt.Printf("Isomorphism of %q found at node %q:\n", sub.Name, entry)
 	for _, sname := range snames {
 		fmt.Printf("   %q=%q\n", sname, m[sname])
-	}
-}
-
-var (
-	// subs is an ordered list of subgraphs representing common control-flow
-	// primitives such as 2-way conditionals, pre-test loops, etc.
-	subs []*graphs.SubGraph
-	// subNames specifies the name of each subgraph in subs, arranged in the same
-	// order.
-	subNames = []string{
-		"pre_loop.dot", "post_loop.dot", "list.dot",
-		"if.dot", "if_else.dot", "if_return.dot",
-	}
-)
-
-func init() {
-	// Parse subgraphs representing common control flow primitives.
-	subDir, err := goutil.SrcDir("decomp.org/x/graphs/testdata/primitives")
-	if err != nil {
-		log.Fatalln(errutil.Err(err))
-	}
-	for _, subName := range subNames {
-		subPath := filepath.Join(subDir, subName)
-		sub, err := graphs.ParseSubGraph(subPath)
-		if err != nil {
-			log.Fatalln(errutil.Err(err))
-		}
-		subs = append(subs, sub)
 	}
 }
