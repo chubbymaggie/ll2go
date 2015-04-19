@@ -26,12 +26,13 @@ go get decomp.org/x/cmd/ll2go
 Usage: ll2go [OPTION]... FILE...
 
 Flags:
-  -f    Force overwrite existing Go source code.
+  -f  Force overwrite existing Go source code.
   -funcs string
-        Comma separated list of functions to decompile (e.g. "foo,bar").
+      Comma separated list of functions to decompile (e.g. "foo,bar").
   -pkgname string
-        Package name.
-  -q    Suppress non-error messages.
+      Package name.
+  -q  Suppress non-error messages.
+  -v  Enable verbose output.
 ```
 
 ## Examples

@@ -1,6 +1,3 @@
-// TODO: Fix variable names, e.g.
-//    foo.0 -> foo_0
-
 package main
 
 import (
@@ -19,10 +16,12 @@ import (
 // node (a statement).
 func parseInst(inst llvm.Value) (ast.Stmt, error) {
 	// TODO: Remove debug output.
-	fmt.Println("parseInst:")
-	fmt.Println("   nops:", inst.OperandsCount())
-	inst.Dump()
-	fmt.Println()
+	if flagVerbose {
+		fmt.Println("parseInst:")
+		fmt.Println("   nops:", inst.OperandsCount())
+		inst.Dump()
+		fmt.Println()
+	}
 
 	// Assignment operation.
 	//    %foo = ...
@@ -228,11 +227,6 @@ func parsePHIInst(inst llvm.Value) (ident string, defs []*definition, err error)
 
 	// Parse operands.
 	for i := 0; i < inst.OperandsCount(); i++ {
-		// TODO: Remove debug output.
-		op := inst.Operand(i)
-		fmt.Println("~~~ [ PHI operand ] ~~~")
-		op.Dump()
-
 		// Parse variable definition expression.
 		expr, err := parseOperand(inst.Operand(i))
 		if err != nil {

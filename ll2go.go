@@ -1,4 +1,5 @@
 //go:generate usagen ll2go
+//go:generate sar -i "\t" "    " z_usage.go
 //go:generate mv z_usage.go z_usage.bak
 //go:generate mango -plain ll2go.go
 //go:generate mv z_usage.bak z_usage.go
@@ -39,6 +40,8 @@ var (
 	flagPkgName string
 	// When flagQuiet is true, suppress non-error messages.
 	flagQuiet bool
+	// When flagQuiet is true, enable verbose output.
+	flagVerbose bool
 )
 
 func init() {
@@ -46,6 +49,7 @@ func init() {
 	flag.StringVar(&flagFuncs, "funcs", "", `Comma separated list of functions to decompile (e.g. "foo,bar").`)
 	flag.StringVar(&flagPkgName, "pkgname", "", "Package name.")
 	flag.BoolVar(&flagQuiet, "q", false, "Suppress non-error messages.")
+	flag.BoolVar(&flagVerbose, "v", false, "Enable verbose output.")
 	flag.Usage = usage
 }
 
@@ -208,15 +212,11 @@ func ll2go(llPath string) error {
 		if err != nil {
 			return errutil.Err(err)
 		}
-		fmt.Printf("=== [ function %q ] ===\n", funcName)
-		fmt.Println()
-		printFunc(f)
-		fmt.Println()
 		file.Decls = append(file.Decls, f)
+		if flagVerbose && !flagQuiet {
+			printFunc(f)
+		}
 	}
-
-	goName := baseName + ".go"
-	printFile(goName, file)
 
 	// Store Go source code to file.
 	goPath := basePath + ".go"
@@ -259,7 +259,9 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string, hprims []*
 			return nil, err
 		}
 		bbs[bb.Name()] = bb
-		printBB(bb)
+		if flagVerbose && !flagQuiet {
+			printBB(bb)
+		}
 	}
 
 	// Replace PHI instructions with assignment statements in the appropriate
@@ -270,9 +272,6 @@ func parseFunc(graph *dot.Graph, module llvm.Module, funcName string, hprims []*
 			return nil, errutil.Newf("invalid basic block type; expected *basicBlock, got %T", bb)
 		}
 		for ident, defs := range block.phis {
-			fmt.Println("block:", block.Name())
-			fmt.Println("  ident:", ident)
-			fmt.Println("  defs: ", defs)
 			for _, def := range defs {
 				assign := &ast.AssignStmt{
 					Lhs: []ast.Expr{newIdent(ident)},
@@ -346,13 +345,5 @@ func printFunc(f *ast.FuncDecl) {
 	fset := token.NewFileSet()
 	fmt.Printf("--- [ function %q ] ---\n", f.Name)
 	printer.Fprint(os.Stdout, fset, f)
-	fmt.Println()
-}
-
-// printFile pretty-prints the Go file to stdout.
-func printFile(name string, file *ast.File) {
-	fset := token.NewFileSet()
-	fmt.Printf("--- [ file %q ] ---\n", name)
-	printer.Fprint(os.Stdout, fset, file)
 	fmt.Println()
 }

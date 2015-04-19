@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
-	"log"
 	"sort"
 
 	"decomp.org/x/graphs"
@@ -78,12 +77,12 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock, hprims []*xprimiti
 		if err != nil {
 			return nil, errutil.Err(err)
 		}
-		fmt.Println("located primitive:")
-		printBB(prim)
+		if flagVerbose && !flagQuiet {
+			fmt.Println("located primitive:")
+			printBB(prim)
+		}
 		bbs[prim.Name()] = prim
 	}
-
-	log.Println("len(bbs):", len(bbs))
 
 	for _, bb := range bbs {
 		if !bb.Term().IsNil() {
@@ -91,8 +90,6 @@ func restructure(graph *dot.Graph, bbs map[string]BasicBlock, hprims []*xprimiti
 			bb.Term().Dump()
 			return nil, errutil.Newf("invalid terminator instruction of last basic block in function; expected nil since return statements are already handled")
 		}
-		fmt.Println("basic block:")
-		printBB(bb)
 		block := &ast.BlockStmt{
 			List: bb.Stmts(),
 		}
@@ -289,9 +286,7 @@ func createIfElsePrim(m map[string]string, bbs map[string]BasicBlock, newName st
 	if targetFalse != nameB && targetFalse != nameC {
 		return nil, errutil.Newf("invalid target false branch; got %q, expected %q or %q", targetFalse, nameB, nameC)
 	}
-	fmt.Printf("B=%q, target true =%q\n", nameB, targetTrue)
 	nameB = targetTrue
-	fmt.Printf("C=%q, target false=%q\n", nameC, targetFalse)
 	nameC = targetFalse
 
 	bbBody1, ok := bbs[nameB]
